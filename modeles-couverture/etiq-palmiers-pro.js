@@ -1,0 +1,1 @@
+window.COVER_TEMPLATES.push({ id: "etiq-palmiers-pro", nom: "Palmiers, formation", cats: ["pro"], model: "officiel", banner: "ruban", color: "#C9CCD2", bannerText: "#1F3864", etiquettes: true, labelColor: "#70AD47", headColor: "#ED7D31", art: "palmsColor", artColor: "#2E7D32", header: "" });

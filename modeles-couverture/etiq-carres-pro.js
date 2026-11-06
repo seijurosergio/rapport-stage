@@ -1,0 +1,1 @@
+window.COVER_TEMPLATES.push({ id: "etiq-carres-pro", nom: "Carrés bleus, formation", cats: ["pro"], model: "officiel", banner: "ruban", color: "#70AD47", bannerText: "#000000", etiquettes: true, labelColor: "#2E86DE", headColor: "#6C8EBF", art: "eclipsingSquares2", artColor: "#2E75B6", header: "" });

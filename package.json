@@ -1,0 +1,21 @@
+{
+  "name": "rapport-stage",
+  "version": "1.0.0",
+  "description": "Site web simple pour aider les étudiants, de toutes filières, à préparer leur rapport de stage :",
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --test tests/api.test.js tests/ui.test.js",
+    "dev": "node dev-server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "docx": "^9.8.1",
+    "eslint": "^10.14.0",
+    "jsdom": "^31.0.0"
+  }
+}

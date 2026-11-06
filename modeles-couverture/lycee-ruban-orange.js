@@ -1,0 +1,1 @@
+window.COVER_TEMPLATES.push({ id: "lycee-ruban-orange", nom: "Lycée, ruban", cats: ["lycee"], model: "officiel", banner: "ruban", color: "#C2410C", header: "RÉPUBLIQUE DU BÉNIN\n*******\nMINISTÈRE DES ENSEIGNEMENTS SECONDAIRE, TECHNIQUE ET DE LA FORMATION PROFESSIONNELLE\n*******" });

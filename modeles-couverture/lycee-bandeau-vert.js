@@ -1,0 +1,1 @@
+window.COVER_TEMPLATES.push({ id: "lycee-bandeau-vert", nom: "Lycée, bandeau plein", cats: ["lycee"], model: "officiel", banner: "bandeau", color: "#0F6B5B", header: "RÉPUBLIQUE DU BÉNIN\n*******\nMINISTÈRE DES ENSEIGNEMENTS SECONDAIRE, TECHNIQUE ET DE LA FORMATION PROFESSIONNELLE\n*******" });

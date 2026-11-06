@@ -1,0 +1,2 @@
+window.COVER_TEMPLATES.push({ id: "etiq-carres-bleus", nom: "Carrés bleus, étiquettes colorées", cats: ["univ"], model: "officiel", banner: "ruban", color: "#70AD47", bannerText: "#000000", etiquettes: true, labelColor: "#2E86DE", headColor: "#6C8EBF", art: "eclipsingSquares2", artColor: "#2E75B6",
+  header: "REPUBLIQUE DU BENIN\n******\nMINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR ET DE LA RECHERCHE SCIENTIFIQUE\n******\nUNIVERSITÉ NATIONALE DES SCIENCES, TECHNOLOGIES, INGÉNIERIE ET MATHÉMATIQUES (UNSTIM) D'ABOMEY\n******" });

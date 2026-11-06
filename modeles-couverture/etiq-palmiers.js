@@ -1,0 +1,2 @@
+window.COVER_TEMPLATES.push({ id: "etiq-palmiers", nom: "Palmiers, étiquettes colorées", cats: ["univ"], model: "officiel", banner: "ruban", color: "#C9CCD2", bannerText: "#1F3864", etiquettes: true, labelColor: "#70AD47", headColor: "#ED7D31", art: "palmsColor", artColor: "#2E7D32",
+  header: "REPUBLIQUE DU BENIN\n******\nMINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR ET DE LA RECHERCHE SCIENTIFIQUE\n******\nUNIVERSITÉ NATIONALE DES SCIENCES, TECHNOLOGIES, INGÉNIERIE ET MATHÉMATIQUES (UNSTIM) D'ABOMEY\n******" });

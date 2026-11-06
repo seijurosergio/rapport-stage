@@ -1,0 +1,1 @@
+window.COVER_TEMPLATES.push({ id: "lycee-encadre-bleu", nom: "Lycée, thème encadré", cats: ["lycee"], model: "officiel", banner: "encadre", color: "#1D4ED8", header: "RÉPUBLIQUE DU BÉNIN\n*******\nMINISTÈRE DES ENSEIGNEMENTS SECONDAIRE, TECHNIQUE ET DE LA FORMATION PROFESSIONNELLE\n*******" });
