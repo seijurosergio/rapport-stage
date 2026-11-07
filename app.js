@@ -139,7 +139,8 @@
       fileBase: function (P) { return 'expose-' + slug(P.sujet); }
     }
   };
-  function M() { return MODES[state.mode] || MODES.stage; }
+
+  const logos = { ecole: null, entreprise: null };
 
   function freshState(mode) {
     const m = MODES[mode] ? mode : 'stage';
@@ -157,7 +158,6 @@
       paid: null
     };
   }
-  const logos = { ecole: null, entreprise: null };
 
   function load() {
     try {
@@ -192,6 +192,7 @@
   }
   let state = load() || freshState();
   let view = 'home'; /* 'home' = page d'accueil, 'app' = les étapes d'un document */
+  function M() { return MODES[state.mode] || MODES.stage; }
   let saveTimer = null;
   let savePending = false;
   function save() {
@@ -1141,6 +1142,8 @@
   function buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders) {
     const o = officialCover(), out = [];
     const tbl = { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none };
+    const noneBorder = { style: d.BorderStyle.NONE, size: 0, color: 'auto' };
+    const tblNoBorders = { top: noneBorder, bottom: noneBorder, left: noneBorder, right: noneBorder, insideHorizontal: noneBorder, insideVertical: noneBorder };
     function run(x, size, color) {
       return new d.TextRun({ text: x.t, font: FONT, size: size, bold: !!x.bold, underline: x.ul ? {} : undefined, color: color || (x.color ? x.color.replace('#', '') : '000000') });
     }
@@ -1260,8 +1263,6 @@
       R.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { after: 80 }, children: [new d.TextRun({ text: o.right.name, font: FONT, size: 21, bold: true })] }));
     }
     if (!R.length) R.push(new d.Paragraph({ children: [] }));
-    const noneBorder = { style: d.BorderStyle.NONE, size: 0, color: 'auto' };
-    const tblNoBorders = { top: noneBorder, bottom: noneBorder, left: noneBorder, right: noneBorder, insideHorizontal: noneBorder, insideVertical: noneBorder };
     out.push(new d.Table({
       width: { size: 9026, type: d.WidthType.DXA }, columnWidths: [4964, 4062], borders: tblNoBorders,
       rows: [new d.TableRow({ children: [
@@ -1371,36 +1372,10 @@
     }
 
     const main = [];
-    main.push(centered('SOMMAIRE', 30, true, 0, 240, headColor));
-
-    function tocEntry(text, level, pageNum) {
-      const indent = level === 2 ? 720 : 0;
-      const size = level === 1 ? 24 : 22;
-      const bold = level === 1;
-      return new d.Paragraph({
-        alignment: d.AlignmentType.LEFT,
-        spacing: { before: 60, after: 60, line: 360 },
-        indent: indent > 0 ? { left: indent } : undefined,
-        tabStops: [{ type: d.TabStopType.RIGHT, position: 8500, leader: d.TabStopLeader.DOT }],
-        children: [
-          new d.TextRun({ text: text, font: FONT, size: size, bold: bold, color: '000000' }),
-          new d.TextRun({ children: [new d.Tab()], font: FONT, size: size }),
-          new d.TextRun({ text: String(pageNum), font: FONT, size: size, bold: bold, color: '000000' })
-        ]
-      });
-    }
-
-    let estimatedPage = 3;
     const lb = labels(state.sections);
-    state.sections.forEach(function (s, i) {
-      const title = (lb[i] ? lb[i] + '  ' : '') + (s.level === 1 ? s.title.toUpperCase() : s.title);
-      main.push(tocEntry(title, s.level, estimatedPage));
-      let lines = String(finalText(s)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
-      if (!lines.length) lines = ['[À compléter]'];
-      const wordsCount = lines.join(' ').split(/\s+/).filter(Boolean).length;
-      const figsCount = (figs[s.id] || []).length;
-      estimatedPage += Math.max(1, Math.ceil((wordsCount / 350) + (figsCount * 0.5)));
-    });
+    let figNo = 0;
+    main.push(centered('SOMMAIRE', 30, true, 0, 240, headColor));
+    main.push(new d.TableOfContents('Sommaire', { hyperlink: true, headingStyleRange: '1-2' }));
 
     if (figCount() > 0) {
       main.push(new d.Paragraph({ pageBreakBefore: true, alignment: d.AlignmentType.CENTER, spacing: { after: 240 },
@@ -1497,6 +1472,8 @@
     });
   }
 
+  const payCfg = { enabled: false, price: 0 };
+
   function download() {
     const nTodo = state.sections.filter(function (x) { return /\[À compléter/.test(x.text || ''); }).length;
     if (nTodo && !confirm(nTodo + " partie(s) contiennent encore un passage [À compléter]. Télécharger quand même ?")) return;
@@ -1517,18 +1494,23 @@
       return;
     }
     if (!hasText() && !confirm("Aucune partie n'est encore rédigée. Le fichier contiendra seulement le plan. Continuer ?")) return;
-    const doc = buildDoc();
-    window.docx.Packer.toBlob(doc).then(function (blob) {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = M().fileBase(state.profile) + '.docx';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-    }).catch(function () {
-      alert("Le fichier n'a pas pu être créé. Réessaie, ou recharge la page.");
-    });
+    try {
+      const doc = buildDoc();
+      window.docx.Packer.toBlob(doc).then(function (blob) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = M().fileBase(state.profile) + '.docx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      }).catch(function () {
+        alert("Le fichier n'a pas pu être créé. Réessaie, ou recharge la page.");
+      });
+    } catch (e) {
+      console.error('Erreur export Word:', e);
+      alert("Le fichier Word n'a pas pu être créé.");
+    }
   }
 
   function setGroupSize(n) {
@@ -1819,7 +1801,6 @@ else if (a === 'useCustom') {
   });
 
   const PEND_KEY = 'rapport-stage-pending';
-  const payCfg = { enabled: false, price: 0 };
   let payBusy = false;
 
   function getPending() {
@@ -1935,6 +1916,9 @@ else if (a === 'useCustom') {
   if (typeof window !== 'undefined') {
     window.isSafeUrl = isSafeUrl;
     window.fetchWithTimeout = fetchWithTimeout;
+    window.buildDoc = buildDoc;
+    window.state = state;
+    window.docx = window.docx; // déjà chargé via script
     Object.defineProperty(window, 'saveTimer', { get: function () { return saveTimer; } });
   }
 })();

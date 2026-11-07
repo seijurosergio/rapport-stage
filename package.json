@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "node --test tests/api.test.js tests/ui.test.js",
+    "test": "node --test tests/*.test.js",
     "dev": "node dev-server.js"
   },
   "keywords": [],
