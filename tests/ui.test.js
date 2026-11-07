@@ -16,6 +16,9 @@ function boot() {
   Object.defineProperty(w, 'pageYOffset', { get: function () { return offset; } });
   w.fetch = function () { return Promise.resolve({ json: function () { return Promise.resolve({ enabled: false, price: 0 }); } }); };
   w.confirm = function () { return true; }; w.alert = function () {};
+  // Charger utils.js AVANT app.js
+  const utilsCode = fs.readFileSync(path.join(ROOT, 'js', 'utils.js'), 'utf8');
+  w.eval(utilsCode);
   const reg = fs.readFileSync(path.join(ROOT, 'modeles-couverture', '_registre.js'), 'utf8');
   w.eval(reg);
   fs.readdirSync(path.join(ROOT, 'modeles-couverture')).filter(function (f) { return f !== '_registre.js'; })
@@ -81,13 +84,13 @@ test('recherche web décochée par défaut', { skip: !JSDOM }, () => {
 
 test('isSafeUrl : rejette javascript: et data:, accepte http/https', { skip: !JSDOM }, () => {
   const t = boot(), w = t.w;
-  assert.strictEqual(w.isSafeUrl('https://example.com'), true);
-  assert.strictEqual(w.isSafeUrl('http://example.com'), true);
-  assert.strictEqual(w.isSafeUrl('javascript:alert(1)'), false);
-  assert.strictEqual(w.isSafeUrl('data:text/html,<script>'), false);
-  assert.strictEqual(w.isSafeUrl('ftp://example.com'), false);
-  assert.strictEqual(w.isSafeUrl(''), false);
-  assert.strictEqual(w.isSafeUrl(null), false);
+  assert.strictEqual(w.AppUtils.isSafeUrl('https://example.com'), true);
+  assert.strictEqual(w.AppUtils.isSafeUrl('http://example.com'), true);
+  assert.strictEqual(w.AppUtils.isSafeUrl('javascript:alert(1)'), false);
+  assert.strictEqual(w.AppUtils.isSafeUrl('data:text/html,<script>'), false);
+  assert.strictEqual(w.AppUtils.isSafeUrl('ftp://example.com'), false);
+  assert.strictEqual(w.AppUtils.isSafeUrl(''), false);
+  assert.strictEqual(w.AppUtils.isSafeUrl(null), false);
 });
 
 test('debouncedSave : délai de 400 ms sur les inputs', { skip: !JSDOM }, () => {
@@ -108,7 +111,7 @@ test('fetchWithTimeout : avorte après 60 secondes', { skip: !JSDOM }, async () 
     return Promise.reject({ name: 'AbortError', signal: controller.signal });
   };
   try {
-    await w.fetchWithTimeout('/api/test', { method: 'POST' });
+    await w.AppUtils.fetchWithTimeout('/api/test', { method: 'POST' });
   } catch (e) {
     abortCalled = e && e.name === 'AbortError';
   }

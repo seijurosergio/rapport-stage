@@ -24,7 +24,8 @@ const MIME = {
   '.eot': 'application/vnd.ms-fontobject'
 };
 
-const FORBIDDEN_DIRS = ['api', 'tests', 'node_modules'];
+const FORBIDDEN_DIRS = ['api', 'tests', 'node_modules', '.git', 'supabase', '.github'];
+const FORBIDDEN_FILES = ['.env', 'package.json', 'package-lock.json', 'eslint.config.js', 'dev-server.js', 'README.md', 'CHANGES.md'];
 
 if (!process.env.MOCK_AI) {
   process.env.MOCK_AI = '1';
@@ -37,7 +38,10 @@ function isSafePath(reqPath) {
   const parts = normalized.split('/');
   for (const part of parts) {
     if (FORBIDDEN_DIRS.includes(part)) return false;
+    if (part.startsWith('.')) return false;
   }
+  const fileName = parts[parts.length - 1] || '';
+  if (FORBIDDEN_FILES.includes(fileName)) return false;
   return true;
 }
 
