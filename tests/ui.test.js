@@ -19,6 +19,15 @@ function boot() {
   // Charger utils.js AVANT app.js
   const utilsCode = fs.readFileSync(path.join(ROOT, 'js', 'utils.js'), 'utf8');
   w.eval(utilsCode);
+  // Charger cover-data.js
+  const coverDataCode = fs.readFileSync(path.join(ROOT, 'js', 'cover-data.js'), 'utf8');
+  w.eval(coverDataCode);
+  // Charger storage.js
+  const storageCode = fs.readFileSync(path.join(ROOT, 'js', 'storage.js'), 'utf8');
+  w.eval(storageCode);
+  // Charger dialogs.js
+  const dialogsCode = fs.readFileSync(path.join(ROOT, 'js', 'dialogs.js'), 'utf8');
+  w.eval(dialogsCode);
   const reg = fs.readFileSync(path.join(ROOT, 'modeles-couverture', '_registre.js'), 'utf8');
   w.eval(reg);
   fs.readdirSync(path.join(ROOT, 'modeles-couverture')).filter(function (f) { return f !== '_registre.js'; })

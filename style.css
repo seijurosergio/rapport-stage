@@ -1,7 +1,8 @@
 :root{
-  --bg:#FAFAF7; --card:#FFFFFF; --ink:#16211E; --muted:#5A6662;
+  --bg:#FAFAF7; --card:#FFFFFF; --ink:#16211E; --muted:#4A5A56;
   --line:#D9DED9; --line2:#C4CBC6; --accent:#0F6B5B; --accent-ink:#FFFFFF;
   --soft:#E6EBE7; --warn:#9A3412;
+  --error:#B00020;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;line-height:1.5}
@@ -10,6 +11,40 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sa
 .modes button{flex:1;height:48px;border:1.5px solid var(--line2);border-radius:12px;background:var(--card);color:var(--muted);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
 .modes button.on{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
 .app.wide{max-width:980px}
+
+/* Touch-friendly minimum sizes */
+@media (pointer: coarse) {
+  .modes button, .btn, .back, .nextlink, .stepsnav button, .tabs button,
+  .tools button, .opt button, .sw label, .gcard,
+  .in, .ta, .in.sm, input[type="file"].in,
+  .srow button, .brandbtn, .linkbtn,
+  .cp .go, .hcard.main .go {
+    min-height: 44px;
+  }
+  .in, .ta, .in.sm { min-height: 44px; }
+  .btn { min-height: 48px; }
+  .btn.ghost, .btn.line { min-height: 44px; }
+}
+
+/* Dialogs */
+.dlg-overlay{position:fixed;inset:0;background:rgba(22,33,30,.45);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:9998}
+.dlg-overlay.show{opacity:1;pointer-events:auto}
+.dlg-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);opacity:0;transition:transform .25s ease,opacity .25s ease;background:var(--ink);color:var(--card);padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:9999;max-width:calc(100vw-48px);text-align:center}
+.dlg-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.dlg-toast-warn{background:var(--warn);color:#fff}
+.dlg-toast-error{background:var(--error);color:#fff}
+.dlg-toast-ok{background:var(--accent);color:var(--accent-ink)}
+.dlg-confirm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.92);opacity:0;transition:transform .18s ease,opacity .18s ease;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:24px;min-width:280px;max-width:calc(100vw-48px);box-shadow:0 20px 50px rgba(0,0,0,.2);z-index:9999;text-align:center}
+.dlg-confirm.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.dlg-confirm p{margin:0 0 18px;font-size:15px;line-height:1.5;color:var(--ink)}
+.dlg-btns{display:flex;gap:10px;justify-content:center}
+.dlg-btn{height:44px;padding:0 20px;border:1.5px solid var(--line2);border-radius:10px;background:var(--card);color:var(--ink);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.dlg-btn:focus-visible{outline:3px solid #9CCFC4;outline-offset:2px}
+.dlg-btn-ok{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.dlg-btn-ok:hover,.dlg-btn-ok:focus{filter:brightness(.95)}
+.dlg-btn-cancel{background:var(--card);color:var(--ink)}
+
+.app{max-width:640px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:18px}
 .hgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .hgrid.soonG{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .hcard{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:1.5px solid var(--line2);border-radius:16px;background:var(--card);padding:18px;font-family:inherit;color:var(--ink);cursor:pointer}

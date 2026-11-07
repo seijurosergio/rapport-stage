@@ -1,31 +1,16 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    const CoverData = require('./cover-data.js');
+    const AppUtils = require('./utils.js');
+    module.exports = factory(CoverData, AppUtils);
   } else {
-    root.AppExport = factory();
+    root.AppExport = factory(root.AppCoverData, root.AppUtils);
   }
-})(this, function () {
+})(this, function (CoverData, AppUtils) {
   'use strict';
 
-  const NONUM = /^(introduction|conclusion|remerciements|r[ée]sum[ée]|sommaire|bibliographie|annexes?|avant-propos|d[ée]dicace)/i;
-
-  function roman(n) {
-    const r = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]; let o = '';
-    r.forEach(function (p) { while (n >= p[0]) { o += p[1]; n -= p[0]; } });
-    return o;
-  }
-
-  function labels(list) {
-    let a = 0, b = 0;
-    return list.map(function (s) {
-      if (s.level === 1) {
-        if (s.nonum) { return ''; }
-        a += 1; b = 0; return roman(a) + '.';
-      }
-      b += 1;
-      return a > 0 ? b + '.' : '';
-    });
-  }
+  const { officialCover, cat, members, NONUM } = CoverData;
+  const { labels } = AppUtils;
 
   function readableColor(hex) {
     const c = String(hex || '').replace('#', '');
@@ -72,8 +57,8 @@
     return new Uint8Array(0);
   }
 
-  function buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, state, assets, M) {
-    const o = officialCover(state), out = [];
+  function buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, profile, cover, assets, modeInfo) {
+    const o = CoverData.officialCover(profile, cover), out = [];
     const noneBorder = { style: d.BorderStyle.NONE, size: 0, color: 'auto' };
     const tblNoBorders = { top: noneBorder, bottom: noneBorder, left: noneBorder, right: noneBorder, insideHorizontal: noneBorder, insideVertical: noneBorder };
     function run(x, size, color) {
@@ -122,9 +107,9 @@
     o.rest.forEach(function (x) { out.push(para(x, 20, d.AlignmentType.CENTER, 50)); });
     o.lines.forEach(function (x) { out.push(para(x, 22, d.AlignmentType.CENTER, 50)); });
 
-    const bst = state.cover.banner;
+    const bst = cover.banner;
     out.push(new d.Paragraph({ spacing: { before: 500, after: 0 }, children: [] }));
-    const txtColor = (bst === 'ruban' || bst === 'bandeau') ? (state.cover.bannerText ? state.cover.bannerText.replace('#', '') : 'FFFFFF') : (bst === 'lignes' ? col : '000000');
+    const txtColor = (bst === 'ruban' || bst === 'bandeau') ? (cover.bannerText ? cover.bannerText.replace('#', '') : 'FFFFFF') : (bst === 'lignes' ? col : '000000');
     const bannerKids = o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); });
     const FULL = 9026, TAIL = 1400;
     function boxTable(kids, border) {
@@ -211,55 +196,6 @@
     return out;
   }
 
-  function officialCover(state) {
-    const c = state.cover;
-    const P = state.profile;
-    const ex = state.mode === 'expose';
-    const head = String(c.header || '').split(/\r?\n/).map(function (t) { return t.trim(); }).filter(Boolean).map(function (t, k) {
-      const star = /^[*•]{2,}$/.test(t);
-      return { t: star ? '*******' : t, star: star, bold: !star && (k === 0 || (c.etiquettes && k >= 4)), color: c.etiquettes && !star && (k === 0 || k === 2) ? c.headColor : undefined };
-    });
-    const top = [], rest = head.slice();
-    if (rest.length) { top.push(rest.shift()); if (rest.length && rest[0].star) top.push(rest.shift()); }
-    const lines = [], et = !!c.etiquettes, lc = c.labelColor || '#2E75B6';
-    function lab(t) { return { t: t, color: lc, ul: true }; }
-    if (et) {
-      if (P.ecole) { lines.push({ t: P.ecole.toUpperCase(), bold: true }); lines.push({ t: '*******', star: true }); }
-      if (P.departement) lines.push({ segs: [lab('Département : '), { t: P.departement, b: true }], left: true });
-      const fl = (cat(state) === 'lycee' ? 'Classe : ' : 'Spécialité : ');
-      if (P.filiere || P.annee) lines.push({ row: [P.filiere ? [lab(fl), { t: P.filiere }] : [], P.annee ? [lab("Années d'études : "), { t: P.annee }] : []] });
-      if (ex && P.matiere) lines.push({ segs: [{ t: P.matiere.toUpperCase(), color: lc, b: true, i: true }], big: true });
-    } else if (P.ecole) { lines.push({ t: P.ecole.toUpperCase(), bold: true, big: true }); lines.push({ t: '*******', star: true }); }
-    if (!et && P.departement) lines.push({ t: P.departement, ul: true });
-    if (!et && P.filiere) lines.push({ t: (/^(fili|class)/i.test(P.filiere) ? '' : (cat(state) === 'lycee' ? 'Classe : ' : 'Filière : ')) + P.filiere });
-    if (!et && ex && P.matiere) { if (lines.length) lines.push({ t: '*******', star: true }); lines.push({ t: 'UE : ' + P.matiere, ul: true }); }
-    if (!et && !ex && P.entreprise) { if (lines.length) lines.push({ t: '*******', star: true }); lines.push({ t: 'Entreprise : ' + P.entreprise, ul: true }); }
-    const banner = [];
-    if (ex) {
-      if (P.numTheme) banner.push({ t: 'THÈME : ' + P.numTheme });
-      if (P.sujet) banner.push({ t: P.sujet });
-      if (!banner.length) banner.push({ t: 'EXPOSÉ', bold: true });
-    } else {
-      banner.push({ t: (P.titreRapport || '').trim() || 'RAPPORT DE STAGE', bold: true });
-    }
-    if (et && !ex && P.entreprise) lines.push({ segs: [lab('Entreprise : '), { t: P.entreprise }], left: true });
-    const after = !ex && P.duree ? [{ t: 'Période de stage : ' + P.duree, ul: true }] : [];
-    const names = ex ? members(state) : (String(P.nom || '').trim() ? [String(P.nom).trim()] : []);
-    const left = { title: ex ? (names.length > 1 ? 'Membre du Groupe' + (P.numGroupe ? ' ' + P.numGroupe : '') : 'Présenté par') + ' :' : 'Rédigé par :', names: names, numbered: names.length > 1, color: et ? lc : undefined };
-    const right = String(P.enseignant || '').trim() ? { title: ex ? (et ? 'Sous la direction de :' : 'Par la Supervision de :') : 'Supervisé par :', name: String(P.enseignant).trim(), color: et ? lc : undefined } : null;
-    return { top: top, rest: rest, lines: lines, banner: banner, after: after, left: left, right: right, year: P.annee ? 'Année académique : ' + P.annee : '', yearSegs: et && P.annee ? [lab('Année Académique : '), { t: P.annee }] : null };
-  }
-
-  function cat(state) {
-    const n = state.profile.niveau;
-    return n === 'lycee' ? 'lycee' : n === 'pro' ? 'pro' : 'univ';
-  }
-
-  function members(state) {
-    const m = (state.profile.membres || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
-    return m;
-  }
-
   function buildDocument(docxLib, project, assets) {
     const d = docxLib;
     const state = project;
@@ -296,13 +232,14 @@
 
     let cover = [];
     if (model === 'officiel') {
-      cover = buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, state, assets, project.M);
+      cover = buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, state.profile, state.cover, assets, project.modeInfo);
     } else {
-      if (assets.logos.ecole || (project.M().logoEntreprise && assets.logos.entreprise)) {
+      const mi = project.modeInfo;
+      if (assets.logos.ecole || (mi.logoEntreprise && assets.logos.entreprise)) {
         cover.push(new d.Table({
           width: { size: 100, type: d.WidthType.PERCENTAGE },
           borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none },
-          rows: [new d.TableRow({ children: [logoCell(assets.logos.ecole, d.AlignmentType.LEFT), logoCell(project.M().logoEntreprise ? assets.logos.entreprise : null, d.AlignmentType.RIGHT)] })]
+          rows: [new d.TableRow({ children: [logoCell(assets.logos.ecole, d.AlignmentType.LEFT), logoCell(mi.logoEntreprise ? assets.logos.entreprise : null, d.AlignmentType.RIGHT)] })]
         }));
       }
       if (state.profile.ecole) cover.push(centered(state.profile.ecole.toUpperCase(), 30, true, 240, 120));
@@ -316,22 +253,22 @@
             borders: noBorders,
             shading: { type: d.ShadingType.CLEAR, fill: col, color: 'auto' },
             margins: { top: 300, bottom: 300, left: 200, right: 200 },
-            children: [centered(project.M().coverTitle, 56, true, 0, 0, 'FFFFFF')]
+            children: [centered(mi.coverTitle, 56, true, 0, 0, 'FFFFFF')]
           })] })]
         }));
         cover.push(new d.Paragraph({ spacing: { before: 0, after: 360 }, children: [] }));
       } else {
-        cover.push(centered(project.M().coverTitle, 60, true, 2800, 360, headColor));
+        cover.push(centered(mi.coverTitle, 60, true, 2800, 360, headColor));
       }
-      project.M().coverLines(state.profile).forEach(function (ln) {
+      mi.coverLines.forEach(function (ln) {
         cover.push(centered(ln[0], ln[1], ln[2], ln[3], ln[4], ln[5] === 'head' ? headColor : undefined));
       });
-      const mem = state.mode === 'expose' ? members(state) : [];
+      const mem = CoverData.members(state.profile);
       if (mem.length > 1) {
-        cover.push(centered('Présenté par :', 28, true, project.M().presentedBefore, 120));
+        cover.push(centered('Présenté par :', 28, true, mi.presentedBefore, 120));
         mem.forEach(function (nm) { cover.push(centered(nm, 28, false, 0, 60)); });
       } else if (mem.length === 1 || (state.mode !== 'expose' && state.profile.nom)) {
-        cover.push(centered('Présenté par : ' + (mem.length ? mem[0] : state.profile.nom), 28, true, project.M().presentedBefore, 120));
+        cover.push(centered('Présenté par : ' + (mem.length ? mem[0] : state.profile.nom), 28, true, mi.presentedBefore, 120));
       }
       if (state.profile.annee) cover.push(centered('Année universitaire : ' + state.profile.annee, 26, false, 600, 120));
     }
@@ -447,5 +384,5 @@
     return (s.text && s.text.trim()) ? s.text : (s.notes || '');
   }
 
-  return { buildDocument, readableColor, ribbonTail, buildOfficialCover, officialCover, cat, members, fromB64, figCount, finalText, labels, NONUM, roman };
+  return { buildDocument, readableColor, ribbonTail, buildOfficialCover, fromB64, figCount, finalText };
 });

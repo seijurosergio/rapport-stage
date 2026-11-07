@@ -2,11 +2,11 @@
   'use strict';
 
   const { esc, words, roman, labels, slug, parseCustom, fmtCite, todayFr, isSafeUrl, fetchWithTimeout, makeDebouncedSave, NONUM, nid, sec } = window.AppUtils;
+  const { loadState, saveState, loadLogos, saveLogos, loadFigsData, saveFigsData, loadPending, savePending, clearPendingData, toB64 } = window.AppStorage;
+  const { showMessage, askConfirm } = window.AppDialogs;
 
   /* Nom affiché en haut des écrans : à remplacer par le vrai nom de l'outil. */
   const APP_NAME = 'Assistant rapport';
-
-  const KEY = 'rapport-stage-v1';
 
   function defaultPlan() {
     return [
@@ -156,48 +156,12 @@
     };
   }
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return null;
-      const s = JSON.parse(raw);
-      if (!s || !Array.isArray(s.sections) || !s.profile) return null;
-      s.sections.forEach(function (x) {
-        if (typeof x.notes !== 'string') { x.notes = x.text || ''; x.text = ''; }
-      });
-      if (!s.cover || !/^(officiel|cadre|moderne|sobre|aucune)$/.test(s.cover.model) || !/^#[0-9A-Fa-f]{6}$/.test(s.cover.color || '')) {
-        s.cover = { model: 'officiel', color: '#0F6B5B', header: DEFAULT_HEADER, banner: 'ruban' };
-      }
-      if (!/^(ruban|bandeau|encadre|double|lignes)$/.test(s.cover.banner)) s.cover.banner = 'ruban';
-      if (!/^(apa|mla|harvard|simple)$/.test(s.citeStyle)) s.citeStyle = 'apa';
-      s.research = s.research !== false;
-      s.sources = Array.isArray(s.sources) ? s.sources.filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, 60).map(function (x) { return x.slice(0, 500); }) : [];
-      if (typeof s.cover.header !== 'string') s.cover.header = DEFAULT_HEADER;
-      s.cover.header = s.cover.header.replace(/Université de ton choix \(modifie cette ligne\)\n?(\*{2,}\n?)?/, '').replace(/\n+$/, '');
-      if (typeof s.cover.template !== 'string') s.cover.template = '';
-      ['labelColor', 'headColor', 'bannerText', 'artColor'].forEach(function (k) { if (!/^#[0-9A-Fa-f]{6}$/.test(s.cover[k] || '')) s.cover[k] = ''; });
-      if (!/^[A-Za-z0-9]{0,40}$/.test(s.cover.art || '')) s.cover.art = '';
-      s.cover.etiquettes = !!s.cover.etiquettes;
-      if (typeof s.profile.email !== 'string') s.profile.email = '';
-      ['sujet', 'matiere', 'enseignant', 'departement', 'numTheme', 'numGroupe', 'niveau', 'pages', 'titreRapport'].forEach(function (k) { if (typeof s.profile[k] !== 'string') s.profile[k] = ''; });
-      if (!/^(stage|expose)$/.test(s.mode)) s.mode = 'stage';
-      if (!Array.isArray(s.profile.membres) || !s.profile.membres.length || s.profile.membres.length > MAX_MEMBRES) s.profile.membres = [String(s.profile.nom || '')];
-      s.profile.membres = s.profile.membres.map(function (x) { return String(x == null ? '' : x); });
-      if (!s.paid || !/^\d+$/.test(String(s.paid.id)) || !/^[0-9a-f]{12}$/.test(s.paid.nonce || '')) s.paid = null;
-      return s;
-    } catch (e) { return null; }
-  }
-  let state = load() || freshState();
+  let state = loadState() || freshState();
   let view = 'home'; /* 'home' = page d'accueil, 'app' = les étapes d'un document */
   function M() { return MODES[state.mode] || MODES.stage; }
 
   function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state));
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return saveState(state);
   }
   function updateSavedStatus() {
     const el = document.getElementById('saved');
@@ -214,39 +178,8 @@
   function debouncedSave() { saveUtils.debouncedSave(); }
   function flushSave() { saveUtils.flushSave(); }
 
-  const LOGO_KEY = 'rapport-stage-logos';
-  function toB64(u8) {
-    let s = '', i; const step = 0x8000;
-    for (i = 0; i < u8.length; i += step) { s += String.fromCharCode.apply(null, u8.subarray(i, i + step)); }
-    return btoa(s);
-  }
-  function fromB64(b) {
-    const s = atob(b), u = new Uint8Array(s.length); let i;
-    for (i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
-    return u;
-  }
-  function saveLogos() {
-    try {
-      const o = {};
-      ['ecole', 'entreprise'].forEach(function (k) {
-        o[k] = logos[k] ? { d: toB64(logos[k].data), w: logos[k].w, h: logos[k].h } : null;
-      });
-      localStorage.setItem(LOGO_KEY, JSON.stringify(o));
-    } catch (e) { /* stockage indisponible ou plein */ }
-  }
-  function loadLogos() {
-    try {
-      const o = JSON.parse(localStorage.getItem(LOGO_KEY) || 'null');
-      if (!o) return;
-      ['ecole', 'entreprise'].forEach(function (k) {
-        const l = o[k];
-        if (l && typeof l.d === 'string' && l.w > 0 && l.h > 0 && l.w <= 1000 && l.h <= 1000) {
-          logos[k] = { data: fromB64(l.d), w: l.w, h: l.h };
-        }
-      });
-    } catch (e) { /* données illisibles : on ignore */ }
-  }
-loadLogos();
+  loadLogos();
+  loadFigs();
 
   function finalText(s) {
     return (s.text && s.text.trim()) ? s.text : (s.notes || '');
@@ -285,24 +218,19 @@ loadLogos();
     return n;
   }
   function saveFigs() {
-    try {
-      const ids = {}, o = {};
-      state.sections.forEach(function (x) { ids[x.id] = 1; });
-      Object.keys(figs).forEach(function (k) { if (ids[k] && figs[k].length) o[k] = figs[k]; });
-      localStorage.setItem(FIG_KEY, JSON.stringify(o));
-      return true;
-    } catch (e) { return false; }
+    const ids = {}, o = {};
+    state.sections.forEach(function (x) { ids[x.id] = 1; });
+    Object.keys(figs).forEach(function (k) { if (ids[k] && figs[k].length) o[k] = figs[k]; });
+    return saveFigsData(o);
   }
   function loadFigs() {
-    try {
-      const o = JSON.parse(localStorage.getItem(FIG_KEY) || 'null');
-      if (!o) return;
-      Object.keys(o).forEach(function (k) {
-        if (!Array.isArray(o[k])) return;
-        figs[k] = o[k].filter(function (f) { return f && typeof f.d === 'string' && f.w > 0 && f.h > 0 && f.w <= 2000 && f.h <= 2000; })
-          .map(function (f) { return { id: String(f.id), d: f.d, w: f.w, h: f.h, cap: String(f.cap || '').slice(0, 300) }; });
-      });
-    } catch (e) { /* données illisibles : on ignore */ }
+    const o = loadFigsData();
+    if (!o) return;
+    Object.keys(o).forEach(function (k) {
+      if (!Array.isArray(o[k])) return;
+      figs[k] = o[k].filter(function (f) { return f && typeof f.d === 'string' && f.w > 0 && f.h > 0 && f.w <= 2000 && f.h <= 2000; })
+        .map(function (f) { return { id: String(f.id), d: f.d, w: f.w, h: f.h, cap: String(f.cap || '').slice(0, 300) }; });
+    });
   }
   loadFigs();
 
@@ -970,12 +898,15 @@ loadLogos();
       return 'error';
     });
   }
-  function developOne(id) {
+  async function developOne(id) {
     if (busy) return;
     let s = null;
     state.sections.forEach(function (x) { if (x.id === id) s = x; });
     if (!s) return;
-    if (s.text && s.text.trim() && !confirm('Remplacer le texte actuel de cette partie par une nouvelle version ?')) return;
+    if (s.text && s.text.trim()) {
+      const ok = await askConfirm('Remplacer le texte actuel de cette partie par une nouvelle version ?');
+      if (!ok) return;
+    }
     busy = true;
     develop(id).then(function () { busy = false; });
   }
@@ -1013,27 +944,44 @@ loadLogos();
 
   const payCfg = { enabled: false, price: 0 };
 
-  function download() {
+  async function download() {
     const nTodo = state.sections.filter(function (x) { return /\[À compléter/.test(x.text || ''); }).length;
-    if (nTodo && !confirm(nTodo + " partie(s) contiennent encore un passage [À compléter]. Télécharger quand même ?")) return;
+    if (nTodo) {
+      const ok = await askConfirm(nTodo + " partie(s) contiennent encore un passage [À compléter]. Télécharger quand même ?");
+      if (!ok) return;
+    }
     if (!payCfg.enabled) { doDownload(); return; }
-    if (!state.paid) { alert('Le téléchargement se fait après paiement.'); return; }
-    fetchWithTimeout('/api/pay-check?id=' + encodeURIComponent(state.paid.id) + '&nonce=' + encodeURIComponent(state.paid.nonce))
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d && d.paid) { doDownload(); return; }
-        alert("Ton paiement n'a pas pu être confirmé. Réessaie dans un moment. S'il persiste, écris-nous avec la référence " + state.paid.id + '.');
-      })
-      .catch(function (e) { alert(e && e.name === 'AbortError' ? 'Le service met trop de temps, réessaie.' : 'Connexion impossible. Vérifie internet et réessaie.'); });
+    if (!state.paid) { showMessage('Le téléchargement se fait après paiement.', 'warn'); return; }
+    try {
+      const r = await fetchWithTimeout('/api/pay-check?id=' + encodeURIComponent(state.paid.id) + '&nonce=' + encodeURIComponent(state.paid.nonce));
+      const d = await r.json();
+      if (d && d.paid) { doDownload(); return; }
+      showMessage("Ton paiement n'a pas pu être confirmé. Réessaie dans un moment. S'il persiste, écris-nous avec la référence " + state.paid.id + '.', 'error');
+    } catch (e) {
+      showMessage(e && e.name === 'AbortError' ? 'Le service met trop de temps, réessaie.' : 'Connexion impossible. Vérifie internet et réessaie.', 'error');
+    }
   }
 
-  function doDownload() {
+  async function doDownload() {
     if (!window.docx) {
-      alert("Le module qui crée le fichier Word n'a pas pu se charger. Vérifie ta connexion internet puis recharge la page.");
+      showMessage("Le module qui crée le fichier Word n'a pas pu se charger. Vérifie ta connexion internet puis recharge la page.", 'error');
       return;
     }
-    if (!hasText() && !confirm("Aucune partie n'est encore rédigée. Le fichier contiendra seulement le plan. Continuer ?")) return;
+    if (!hasText()) {
+      const ok = await askConfirm("Aucune partie n'est encore rédigée. Le fichier contiendra seulement le plan. Continuer ?");
+      if (!ok) return;
+    }
     try {
+      const m = M();
+      const modeInfo = {
+        name: m.name,
+        docTitle: m.docTitle,
+        coverTitle: m.coverTitle,
+        presentedBefore: m.presentedBefore,
+        logoEntreprise: m.logoEntreprise,
+        coverLines: m.coverLines(state.profile),
+        fileBase: m.fileBase(state.profile)
+      };
       const project = {
         mode: state.mode,
         profile: state.profile,
@@ -1041,27 +989,28 @@ loadLogos();
         cover: state.cover,
         sources: state.sources,
         citeStyle: state.citeStyle,
-        M: M
+        modeInfo: modeInfo
       };
       const assets = {
         logos: logos,
         figs: figs
       };
       const doc = window.AppExport.buildDocument(window.docx, project, assets);
-      window.docx.Packer.toBlob(doc).then(function (blob) {
+      try {
+        const blob = await window.docx.Packer.toBlob(doc);
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = M().fileBase(state.profile) + '.docx';
+        a.download = modeInfo.fileBase + '.docx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-      }).catch(function () {
-        alert("Le fichier n'a pas pu être créé. Réessaie, ou recharge la page.");
-      });
+      } catch (e) {
+        showMessage("Le fichier n'a pas pu être créé. Réessaie, ou recharge la page.", 'error');
+      }
     } catch (e) {
       console.error('Erreur export Word:', e);
-      alert("Le fichier Word n'a pas pu être créé.");
+      showMessage("Le fichier Word n'a pas pu être créé.", 'error');
     }
   }
 
@@ -1079,11 +1028,11 @@ loadLogos();
   function missingFields() {
     return M().required.filter(function (r) { return !String(state.profile[r[0]] || '').trim(); }).map(function (r) { return r[1]; });
   }
-  function confirmReplace() {
-    return !hasText() || confirm('Ce changement remplace ton plan actuel et efface les textes déjà écrits. Continuer ?');
+  async function confirmReplace() {
+    return !hasText() || await askConfirm('Ce changement remplace ton plan actuel et efface les textes déjà écrits. Continuer ?');
   }
 
-  app.addEventListener('click', function (e) {
+  app.addEventListener('click', async function (e) {
     const t = e.target.closest('button');
     if (!t) return;
     const tab = t.getAttribute('data-tab');
@@ -1106,7 +1055,10 @@ loadLogos();
       const nm = t.getAttribute('data-mode');
       if (MODES[nm]) {
         if (nm !== state.mode) {
-          if (hasText() && !confirm('Tu as un travail en cours dans un autre type de document. Commencer celui-ci va effacer ce travail. Continuer ?')) return;
+          if (hasText()) {
+            const ok = await askConfirm('Tu as un travail en cours dans un autre type de document. Commencer celui-ci va effacer ce travail. Continuer ?');
+            if (!ok) return;
+          }
           state.mode = nm; state.sections = MODES[nm].plan(); state.tab = 'default'; state.customText = ''; state.step = 1;
           if (nm === 'expose' && state.profile.membres.length === 1 && String(state.profile.nom || '').trim()) state.profile.membres[0] = state.profile.nom;
         }
@@ -1120,27 +1072,27 @@ loadLogos();
       if (gs >= 2 && gm.length) {
         state.step = 1; flushSave(); save(); render('Il manque : ' + gm.join(', ') + '.'); return;
       }
-      if (gs === 3 && !list.length) { alert('Ajoute au moins une partie à ton plan.'); return; }
+      if (gs === 3 && !list.length) { showMessage('Ajoute au moins une partie à ton plan.', 'warn'); return; }
       if (gs >= 1 && gs <= 3 && gs !== state.step) { state.step = gs; flushSave(); save(); render(); }
     }
     else if (a === 'to1') { state.step = 1; flushSave(); save(); render(); }
     else if (a === 'next1') {
       const missing = missingFields();
       if (missing.length) { render('Il manque : ' + missing.join(', ') + '.'); return; }
-      state.step = 2; flushSave(); save(); render();
-    }
+      state.step = 2; flushSave(); save(); render(); }
     else if (a === 'to2') { state.step = 2; flushSave(); save(); render(); }
     else if (a === 'to3') {
-      if (!list.length) { alert('Ajoute au moins une partie à ton plan.'); return; }
-      state.step = 3; flushSave(); save(); render();
-    }
+      if (!list.length) { showMessage('Ajoute au moins une partie à ton plan.', 'warn'); return; }
+      state.step = 3; flushSave(); save(); render(); }
     else if (a === 'download') { download(); }
     else if (a === 'develop') { developOne(t.getAttribute('data-sid')); }
     else if (a === 'developAll') { developAll(); }
     else if (a === 'pay') { startPay(); }
     else if (a === 'checkPay') { checkPending(false); }
     else if (a === 'reset') {
-      if (confirm('Tout effacer : tes réponses, ton plan et tes textes ? Cette action est définitive.' + (state.paid ? ' Tu as déjà payé : un nouveau rapport demandera un nouveau paiement.' : ''))) {
+      const txt = 'Tout effacer : tes réponses, ton plan et tes textes ? Cette action est définitive.' + (state.paid ? ' Tu as déjà payé : un nouveau rapport demandera un nouveau paiement.' : '');
+      const ok = await askConfirm(txt);
+      if (ok) {
         state = freshState(state.mode); logos.ecole = null; logos.entreprise = null; saveLogos(); figs = {}; saveFigs(); foundSources = []; clearPending(); flushSave(); save(); render();
       }
     }
@@ -1352,17 +1304,14 @@ else if (a === 'useCustom') {
     if ((key === 'ecole' || key === 'entreprise') && el.files && el.files[0]) readLogo(key, el.files[0]);
   });
 
-  const PEND_KEY = 'rapport-stage-pending';
   let payBusy = false;
 
   function getPending() {
-    try {
-      const p = JSON.parse(localStorage.getItem(PEND_KEY) || 'null');
-      return p && /^\d+$/.test(String(p.id)) && /^[0-9a-f]{12}$/.test(p.nonce || '') ? p : null;
-    } catch (e) { return null; }
+    const p = loadPending();
+    return p && /^\d+$/.test(String(p.id)) && /^[0-9a-f]{12}$/.test(p.nonce || '') ? p : null;
   }
-  function setPending(p) { try { localStorage.setItem(PEND_KEY, JSON.stringify(p)); } catch (e) { /* ignoré */ } }
-  function clearPending() { try { localStorage.removeItem(PEND_KEY); } catch (e) { /* ignoré */ } }
+  function setPending(p) { savePending(p); }
+  function clearPending() { clearPendingData(); }
 
   function money(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA'; }
   function canDownload() { return !payCfg.enabled || !!state.paid; }
