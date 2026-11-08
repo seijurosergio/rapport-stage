@@ -8,6 +8,41 @@ let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { try { ({ JSDOM } 
 
 const ROOT = path.join(__dirname, '..');
 
+function makeProject(overrides = {}) {
+  return {
+    mode: 'stage',
+    profile: { nom: 'Test', ecole: 'École', filiere: 'Filière', entreprise: 'Entreprise', duree: '1 semaine', missions: 'Test', sujet: 'Sujet', matiere: '', enseignant: '', departement: '', numTheme: '', numGroupe: '', titreRapport: '', niveau: 'licence', pages: '10', membres: ['Test'] },
+    sections: [
+      { id: 's1', level: 1, title: 'Introduction', guide: '', nonum: true, notes: 'Notes intro', text: 'Texte intro' },
+      { id: 's2', level: 1, title: 'Partie 1', guide: '', nonum: false, notes: 'Notes 1', text: 'Texte 1' },
+      { id: 's3', level: 2, title: 'Sous-partie', guide: '', nonum: false, notes: 'Notes 2', text: 'Texte 2' }
+    ],
+    cover: { model: 'officiel', color: '#0F6B5B', header: '', banner: 'ruban', etiquettes: false },
+    sources: [],
+    citeStyle: 'apa',
+    modeInfo: {
+      name: 'Rapport de stage',
+      docTitle: 'Rapport de stage',
+      coverTitle: 'RAPPORT DE STAGE',
+      presentedBefore: 2600,
+      logoEntreprise: true,
+      coverLines: function(P) {
+        const o = [];
+        if (P.entreprise) o.push(['Stage effectué à : ' + P.entreprise, 28, false, 240, 120]);
+        if (P.duree) o.push(['Durée : ' + P.duree, 26, false, 0, 120]);
+        return o;
+      }
+    }
+  };
+}
+
+function makeAssets() {
+  return {
+    logos: { ecole: null, entreprise: null },
+    figs: {}
+  };
+}
+
 function boot() {
   const dom = new JSDOM('<!doctype html><html><body><div class="app" id="app"></div></body></html>', { runScripts: 'outside-only', url: 'https://test.local/' });
   const w = dom.window;
@@ -18,7 +53,6 @@ function boot() {
   // Charger docx d'abord
   const docxCode = fs.readFileSync(path.join(ROOT, 'vendor', 'docx.iife.js'), 'utf8');
   w.eval(docxCode);
-  // Exposer docx sur window pour les tests
   w.docx = w.docx;
   // Charger utils.js
   const utilsCode = fs.readFileSync(path.join(ROOT, 'js', 'utils.js'), 'utf8');
@@ -43,43 +77,6 @@ function boot() {
   return w;
 }
 
-function makeProject(w, overrides = {}) {
-  return {
-    mode: 'stage',
-    profile: { nom: 'Test', ecole: 'École', filiere: 'Filière', entreprise: 'Entreprise', duree: '1 semaine', missions: 'Test', sujet: 'Sujet', matiere: '', enseignant: '', departement: '', numTheme: '', numGroupe: '', titreRapport: '', niveau: 'licence', pages: '10', membres: ['Test'] },
-    sections: [
-      { id: 's1', level: 1, title: 'Introduction', guide: '', nonum: true, notes: 'Notes intro', text: 'Texte intro' },
-      { id: 's2', level: 1, title: 'Partie 1', guide: '', nonum: false, notes: 'Notes 1', text: 'Texte 1' },
-      { id: 's3', level: 2, title: 'Sous-partie', guide: '', nonum: false, notes: 'Notes 2', text: 'Texte 2' }
-    ],
-    cover: { model: 'officiel', color: '#0F6B5B', header: '', banner: 'ruban', etiquettes: false },
-    sources: [],
-    citeStyle: 'apa',
-    M: function() {
-      return {
-        name: 'Rapport de stage',
-        docTitle: 'Rapport de stage',
-        coverTitle: 'RAPPORT DE STAGE',
-        presentedBefore: 2600,
-        logoEntreprise: true,
-        coverLines: function(P) {
-          const o = [];
-          if (P.entreprise) o.push(['Stage effectué à : ' + P.entreprise, 28, false, 240, 120]);
-          if (P.duree) o.push(['Durée : ' + P.duree, 26, false, 0, 120]);
-          return o;
-        }
-      };
-    }
-  };
-}
-
-function makeAssets() {
-  return {
-    logos: { ecole: null, entreprise: null },
-    figs: {}
-  };
-}
-
 test('LeaderType.DOT existe dans docx (pas TabStopLeader)', { skip: !JSDOM }, () => {
   const w = boot();
   assert.ok(typeof w.docx !== 'undefined', 'docx doit être exposé');
@@ -89,7 +86,7 @@ test('LeaderType.DOT existe dans docx (pas TabStopLeader)', { skip: !JSDOM }, ()
 
 test('AppExport.buildDocument génère un document valide', { skip: !JSDOM }, () => {
   const w = boot();
-  const project = makeProject(w);
+  const project = makeProject();
   const assets = { logos: { ecole: null, entreprise: null }, figs: {} };
   const doc = w.AppExport.buildDocument(w.docx, project, assets);
   assert.ok(doc, 'Document créé');
@@ -97,7 +94,7 @@ test('AppExport.buildDocument génère un document valide', { skip: !JSDOM }, ()
 
 test('Sommaire statique généré (pas TableOfContents dynamique)', { skip: !JSDOM }, () => {
   const w = boot();
-  const project = makeProject(w);
+  const project = makeProject();
   project.sections = [
     { id: 's1', level: 1, title: 'Introduction', guide: '', nonum: true, notes: 'Notes', text: 'Texte' },
     { id: 's2', level: 1, title: 'Développement', guide: '', nonum: false, notes: 'Notes', text: 'Texte' }
@@ -112,7 +109,7 @@ test('Sommaire statique généré (pas TableOfContents dynamique)', { skip: !JSD
 
 test('Tableau signature sans bordures (borders NONE)', { skip: !JSDOM }, () => {
   const w = boot();
-  const project = makeProject(w);
+  const project = makeProject();
   project.profile.enseignant = 'Prof';
   project.sections = [
     { id: 's1', level: 1, title: 'Introduction', guide: '', nonum: true, notes: 'Notes', text: 'Texte' }
@@ -125,7 +122,7 @@ test('Tableau signature sans bordures (borders NONE)', { skip: !JSDOM }, () => {
 
 test('Tableau ruban sans bordures (boxTable)', { skip: !JSDOM }, () => {
   const w = boot();
-  const project = makeProject(w);
+  const project = makeProject();
   project.cover = { model: 'officiel', color: '#0F6B5B', header: '', banner: 'bandeau', etiquettes: false };
   const assets = { logos: { ecole: null, entreprise: null }, figs: {} };
   const doc = w.AppExport.buildDocument(w.docx, project, assets);

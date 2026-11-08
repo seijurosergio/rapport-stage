@@ -7,7 +7,7 @@
 })(this, function () {
   'use strict';
 
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 6;
   const KEY = 'rapport-stage-v1';
   const LOGO_KEY = 'rapport-stage-logos';
   const FIG_KEY = 'rapport-stage-figs';
@@ -89,6 +89,34 @@
       if (typeof s.cover.artColor !== 'string') s.cover.artColor = '';
       if (typeof s.cover.art !== 'string') s.cover.art = '';
       s.schemaVersion = 3;
+    }
+    if (s.schemaVersion === 3) {
+      if (!Array.isArray(s.profile.membres)) s.profile.membres = [String(s.profile.nom || '')];
+      s.profile.membres = s.profile.membres.slice(0, 5).map(function (x) { return String(x == null ? '' : x); });
+      if (s.sections) {
+        s.sections.forEach(function (sec) {
+          if (typeof sec.text !== 'string') sec.text = '';
+          if (typeof sec.notes !== 'string') sec.notes = '';
+        });
+      }
+      if (typeof s.cover.bannerText !== 'string') s.cover.bannerText = '';
+      if (typeof s.cover.headColor !== 'string') s.cover.headColor = '';
+      if (typeof s.cover.labelColor !== 'string') s.cover.labelColor = '';
+      if (typeof s.cover.artColor !== 'string') s.cover.artColor = '';
+      if (typeof s.cover.art !== 'string') s.cover.art = '';
+      s.schemaVersion = 4;
+    }
+    if (s.schemaVersion === 4) {
+      if (typeof s.tocMode !== 'string' || !/^(simple|auto)$/.test(s.tocMode)) {
+        s.tocMode = 'simple';
+      }
+      s.schemaVersion = 5;
+    }
+    if (s.schemaVersion === 5) {
+      if (typeof s.partPageBreak !== 'boolean') {
+        s.partPageBreak = false;
+      }
+      s.schemaVersion = 6;
     }
     return s;
   }

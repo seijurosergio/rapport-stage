@@ -16,6 +16,10 @@ function boot() {
   Object.defineProperty(w, 'pageYOffset', { get: function () { return offset; } });
   w.fetch = function () { return Promise.resolve({ json: function () { return Promise.resolve({ enabled: false, price: 0 }); } }); };
   w.confirm = function () { return true; }; w.alert = function () {};
+  // Charger docx d'abord
+  const docxCode = fs.readFileSync(path.join(ROOT, 'vendor', 'docx.iife.js'), 'utf8');
+  w.eval(docxCode);
+  w.docx = w.docx;
   // Charger utils.js AVANT app.js
   const utilsCode = fs.readFileSync(path.join(ROOT, 'js', 'utils.js'), 'utf8');
   w.eval(utilsCode);
@@ -28,6 +32,9 @@ function boot() {
   // Charger dialogs.js
   const dialogsCode = fs.readFileSync(path.join(ROOT, 'js', 'dialogs.js'), 'utf8');
   w.eval(dialogsCode);
+  // Charger export-docx.js
+  const exportCode = fs.readFileSync(path.join(ROOT, 'js', 'export-docx.js'), 'utf8');
+  w.eval(exportCode);
   const reg = fs.readFileSync(path.join(ROOT, 'modeles-couverture', '_registre.js'), 'utf8');
   w.eval(reg);
   fs.readdirSync(path.join(ROOT, 'modeles-couverture')).filter(function (f) { return f !== '_registre.js'; })

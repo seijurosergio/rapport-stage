@@ -68,10 +68,11 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sa
 .cpo .o-lg .o-c{flex:1}
 .cpo .o-l{margin:1px 0}.cpo .b{font-weight:700}.cpo .u{text-decoration:underline}
 .cpo .o-st{letter-spacing:1px;font-size:8px}
-.cpo .o-rib{display:flex;align-items:stretch;margin:10px -2px}
-.cpo .o-rib i{flex:0 0 12%;background:var(--cc);opacity:.85}
-.cpo .o-rib i:first-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,28% 50%)}
-.cpo .o-rib i:last-child{clip-path:polygon(0 0,100% 0,72% 50%,100% 100%,0 100%)}
+.cpo .o-rib{display:table;width:100%;table-layout:fixed;margin:10px 0;border-collapse:collapse}
+.cpo .o-rib > div{display:table-cell;vertical-align:middle;padding:10px 6px;font-size:10px;text-align:center}
+.cpo .o-rib > div:first-child{width:12%;background:var(--ct);opacity:.85}
+.cpo .o-rib > div:last-child{width:12%;background:var(--ct);opacity:.85}
+.cpo .o-rib > div:nth-child(2){width:76%;background:var(--cc);color:var(--ct,#fff);font-weight:700}
 .cpo .o-row{display:flex;justify-content:space-between;gap:6px;margin:5px 0;font-size:9px}
 .cpo .o-left{text-align:left}
 .cpo .o-rib div{flex:1;background:var(--cc);color:var(--ct,#fff);padding:10px 6px;font-size:10px;margin:6px 0}

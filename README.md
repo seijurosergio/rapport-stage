@@ -39,7 +39,7 @@ npx eslint .
 
 ## Tests
 
-Lance tous les tests (API, UI, export Word, serveur de dev) :
+Lance tous les tests (API, UI, export Word, serveur de dev, parité couverture) :
 
 ```bash
 npm test
@@ -52,6 +52,10 @@ Les tests couvrent :
 - `tests/ui.test.js` : interface (jsdom) - nom outil, scroll, recherche web, isSafeUrl, debounce, fetch timeout
 - `tests/export.test.js` : export Word (docx) - LeaderType, buildDoc, TOC, bordures
 - `tests/dev-server.test.js` : serveur de dev - sécurité (fichiers cachés, traversées)
+- `tests/cover-parity.test.js` : parité aperçu/Word pour tous modèles/bannières
+- `tests/storage.test.js` : stockage localStorage (migrations, quotas)
+- `tests/dialogs.test.js` : boîtes de dialogue accessibles (Échap, focus trap)
+- `tests/utils.test.js` : utilitaires purs (roman, labels, parseCustom, fmtCite, isSafeUrl, etc.)
 
 ## Déploiement
 
@@ -85,11 +89,22 @@ Le projet est déployé sur Vercel. La configuration se trouve dans `vercel.json
 │   ├── pay-start.js    # Init paiement
 │   └── pay-check.js    # Vérif paiement
 ├── modeles-couverture/ # Templates page de garde
+├── js/
+│   ├── utils.js        # Utilitaires purs (UMD/Node)
+│   ├── cover-data.js   # Données page de garde (UMD/Node)
+│   ├── storage.js      # Stockage localStorage (UMD/Node)
+│   ├── dialogs.js      # Boîtes de dialogue accessibles (UMD/Node)
+│   └── export-docx.js  # Génération Word (UMD/Node)
+├── modeles-couverture/ # Templates page de garde
 ├── tests/
 │   ├── api.test.js
 │   ├── ui.test.js
 │   ├── export.test.js
-│   └── dev-server.test.js
+│   ├── dev-server.test.js
+│   ├── cover-parity.test.js
+│   ├── storage.test.js
+│   ├── dialogs.test.js
+│   └── utils.test.js
 └── .github/workflows/ci.yml  # CI GitHub Actions
 ```
 
@@ -101,3 +116,47 @@ GitHub Actions (`.github/workflows/ci.yml`) : à chaque push/PR sur main/master 
 3. `npm test` (avec `MOCK_AI=1`)
 
 Le workflow échoue si l'une de ces étapes échoue.
+
+## Nouvelles fonctionnalités (Tâche 9)
+
+### Page de garde
+- **Bannière "ruban" refaite** : tableau 3 cellules (12% / 76% / 12%), teintes claires (25% blanc) sur les côtés, couleur d'accent au centre. Texte blanc ou noir selon contraste WCAG AA (4.5:1). Sans canvas ni images.
+- **Aucune bordure visible** : tous les tableaux de la page de garde ont les 6 bordures (table + cellules) à `none`.
+- **Autres styles inchangés** : bandeau, encadré, double cadre, lignes.
+
+### Sommaire (TOC)
+- **Mode "Simple" (défaut)** : liste de paragraphes avec signets (`BookmarkStart`/`BookmarkEnd`) et liens internes (`InternalHyperlink`). Pas de numéros de page inventés. Sous-parties décalées.
+- **Mode "Automatique"** : champ `TableOfContents` natif avec `features.updateFields`.
+- **Choix dans l'UI (étape 3)** : sélecteur "Sommaire : Simple / Automatique". Aide contextuelle pour le mode auto.
+
+### Sauts de page
+- **Introduction** : nouvelle page après le sommaire.
+- **Conclusion** : nouvelle page.
+- **Sources** : nouvelle page.
+- **Option "Chaque grande partie sur nouvelle page"** (décochee par défaut) : chaque partie niveau 1 (sauf introduction) commence sur nouvelle page via `pageBreakBefore`.
+- Pas de page vide créée.
+
+### Parité aperçu / Word
+- Test `tests/cover-parity.test.js` : pour chaque modèle (20) et bannière (5), l'aperçu JS et le Word généré contiennent les mêmes textes (après normalisation).
+- Modèle "Palmiers" (stage) : le nom saisi apparaît bien sous "Rédigé par".
+
+### Accessibilité
+- Boîtes de dialogue (`showMessage`, `askConfirm`) : `role="dialog"`, `aria-modal`, focus trap, Échap annule, focus restitué.
+- 15 `alert()`/`confirm()` remplacés.
+- Contraste WCAG AA pour `--muted` (#4A5A56).
+- Boutons/champs ≥ 44px sur mobile (`@media (pointer:coarse)`).
+
+### Modules purs (UMD/Node)
+- `js/utils.js` : 14 fonctions (`esc`, `words`, `roman`, `labels`, `slug`, `parseCustom`, `fmtCite`, `todayFr`, `isSafeUrl`, `fetchWithTimeout`, `makeDebouncedSave`, `NONUM`, `nid`, `sec`).
+- `js/cover-data.js` : `officialCover(profile, cover, mode)`, `cat(profile)`, `members(profile)`, `NONUM`.
+- `js/storage.js` : `schemaVersion=6`, migrations v1→v6, `saveState` booléen, quotas, logos/figures/pending.
+- `js/export-docx.js` : `buildDocument(docxLib, project, assets)` pur, sans DOM/localStorage/state/M().
+- `js/dialogs.js` : `showMessage(texte, type)`, `askConfirm(texte, {oui, non})` → Promise<boolean>.
+
+### Stockage
+- `schemaVersion=6`, migrations v1→v6 (notes/text, cover, sources, tocMode, partPageBreak).
+- `saveState` renvoie booléen ; message "Échec de sauvegarde : espace plein" en rouge si échec.
+
+### Tests
+- 92 tests passent (5 ignorés), ESLint clean.
+- CI GitHub Actions : Node 22, `npm ci`, `npx eslint .`, `npm test` (`MOCK_AI=1`).

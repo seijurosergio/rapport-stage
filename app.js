@@ -4,6 +4,7 @@
   const { esc, words, roman, labels, slug, parseCustom, fmtCite, todayFr, isSafeUrl, fetchWithTimeout, makeDebouncedSave, NONUM, nid, sec } = window.AppUtils;
   const { loadState, saveState, loadLogos, saveLogos, loadFigsData, saveFigsData, loadPending, savePending, clearPendingData, toB64 } = window.AppStorage;
   const { showMessage, askConfirm } = window.AppDialogs;
+  const { officialCover, cat: coverCatFn, members: coverMembers } = window.AppCoverData;
 
   /* Nom affiché en haut des écrans : à remplacer par le vrai nom de l'outil. */
   const APP_NAME = 'Assistant rapport';
@@ -152,6 +153,8 @@
       sources: [],
       citeStyle: 'apa',
       research: false,
+      tocMode: 'simple',
+      partPageBreak: false,
       paid: null
     };
   }
@@ -424,12 +427,8 @@
     setSrcStatus('ok', 'Source ajoutée à ta liste.');
   }
 
-  function members() {
-    const m = (state.profile.membres || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
-    return m;
-  }
   function syncNom() {
-    const m = members();
+    const m = coverMembers(state.profile);
     state.profile.nom = m.length ? m[0] : '';
   }
   function groupHtml() {
@@ -445,7 +444,6 @@
       '<select class="in" id="f-count" data-count="1">' + opts + '</select></div>' + inputs;
   }
 
-  function cat() { const n = state.profile.niveau; return n === 'lycee' ? 'lycee' : n === 'pro' ? 'pro' : 'univ'; }
   const COVER_CATS = [['univ', 'Université et écoles'], ['lycee', 'Lycée et collège'], ['pro', 'Formation professionnelle']];
   let coverCat = '';
   function headerParts() {
@@ -462,7 +460,7 @@
   }
   function coverInfoHtml() {
     const P = state.profile, ex = state.mode === 'expose';
-    const L = cat() === 'lycee';
+    const L = coverCat === 'lycee';
     const fields = ex
       ? [['ecole', L ? 'Établissement' : 'École ou université'], ['departement', L ? 'Série ou option' : 'Département'], ['filiere', L ? 'Classe' : 'Filière ou spécialité'], ['annee', 'Année'],
          ['matiere', 'Matière ou UE'], ['sujet', "Thème de l'exposé"], ['numTheme', 'Numéro du thème'], ['numGroupe', 'Numéro du groupe'], ['enseignant', 'Enseignant (supervision)']]
@@ -480,7 +478,7 @@
     const pv = document.getElementById('cover-prev'); if (pv) pv.innerHTML = coverPreview();
     const g = document.getElementById('gal');
     if (g) {
-      const cc = coverCat || cat();
+      const cc = coverCat;
       g.innerHTML = (window.COVER_TEMPLATES || []).filter(function (t) { return t.cats.indexOf(cc) >= 0; }).map(function (t) {
         return '<button type="button" class="gcard' + (state.cover.template === t.id ? ' on' : '') + '" data-action="pickCover" data-tid="' + t.id + '" aria-pressed="' + (state.cover.template === t.id) + '"><div class="gp">' + coverPreview(tplCfg(t, state.cover)) + '</div><div class="gn">' + esc(t.nom) + '</div></button>';
       }).join('');
@@ -490,7 +488,7 @@
     const known = [DEFAULT_HEADER].concat(HEADER_PRESETS.map(function (h) { return h[2]; }).filter(function (x) { return x !== null; }));
     (window.COVER_TEMPLATES || []).forEach(function (t) { if (typeof t.header === 'string') known.push(t.header); });
     if (known.indexOf(state.cover.header) >= 0) {
-      const k = cat();
+      const k = coverCat;
       state.cover.header = k === 'lycee' ? HEADER_PRESETS.filter(function (h) { return h[0] === 'lycee'; })[0][2] : k === 'pro' ? '' : DEFAULT_HEADER;
     }
     state.cover.template = '';
@@ -563,7 +561,7 @@
     const f = M().fields.map(function (x) {
       if (x[0] === '__group') return groupHtml();
       let lab = x[1], ph = x[2];
-      if (cat() === 'lycee' && LABELS_LYCEE[x[0]]) { lab = LABELS_LYCEE[x[0]][0]; ph = LABELS_LYCEE[x[0]][1]; }
+      if (coverCat === 'lycee' && LABELS_LYCEE[x[0]]) { lab = LABELS_LYCEE[x[0]][0]; ph = LABELS_LYCEE[x[0]][1]; }
       return '<div class="field"><label for="f-' + x[0] + '">' + lab + '</label>' +
         '<input class="in" id="f-' + x[0] + '" type="text" data-field="' + x[0] + '" placeholder="' + esc(ph) + '" value="' + esc(state.profile[x[0]]) + '"></div>';
     }).join('');
@@ -628,48 +626,11 @@
   const BANNER_STYLES = [['ruban', 'Ruban'], ['bandeau', 'Bandeau plein'], ['encadre', 'Encadré'], ['double', 'Double cadre'], ['lignes', 'Entre deux lignes']];
   const COVER_COLORS = [['#0F6B5B', 'Vert'], ['#1D4ED8', 'Bleu'], ['#7F1D1D', 'Bordeaux'], ['#111827', 'Noir'], ['#C2410C', 'Orange'], ['#6D28D9', 'Violet']];
 
-  function officialCover(c) {
-    c = c || state.cover;
-    const P = state.profile, ex = state.mode === 'expose';
-    const head = String(c.header || '').split(/\r?\n/).map(function (t) { return t.trim(); }).filter(Boolean).map(function (t, k) {
-      const star = /^[*•]{2,}$/.test(t);
-      return { t: star ? '*******' : t, star: star, bold: !star && (k === 0 || (c.etiquettes && k >= 4)), color: c.etiquettes && !star && (k === 0 || k === 2) ? c.headColor : undefined };
-    });
-    const top = [], rest = head.slice(), i0 = 0;
-    if (rest.length) { top.push(rest.shift()); if (rest.length && rest[0].star) top.push(rest.shift()); }
-    const lines = [], et = !!c.etiquettes, lc = c.labelColor || '#2E75B6';
-    function lab(t) { return { t: t, color: lc, ul: true }; }
-    if (et) {
-      if (P.ecole) { lines.push({ t: P.ecole.toUpperCase(), bold: true }); lines.push({ t: '*******', star: true }); }
-      if (P.departement) lines.push({ segs: [lab('Département : '), { t: P.departement, b: true }], left: true });
-      const fl = (cat() === 'lycee' ? 'Classe : ' : 'Spécialité : ');
-      if (P.filiere || P.annee) lines.push({ row: [P.filiere ? [lab(fl), { t: P.filiere }] : [], P.annee ? [lab("Années d'études : "), { t: P.annee }] : []] });
-      if (ex && P.matiere) lines.push({ segs: [{ t: P.matiere.toUpperCase(), color: lc, b: true, i: true }], big: true });
-    } else if (P.ecole) { lines.push({ t: P.ecole.toUpperCase(), bold: true, big: true }); lines.push({ t: '*******', star: true }); }
-    if (!et && P.departement) lines.push({ t: P.departement, ul: true });
-    if (!et && P.filiere) lines.push({ t: (/^(fili|class)/i.test(P.filiere) ? '' : (cat() === 'lycee' ? 'Classe : ' : 'Filière : ')) + P.filiere });
-    if (!et && ex && P.matiere) { if (lines.length) lines.push({ t: '*******', star: true }); lines.push({ t: 'UE : ' + P.matiere, ul: true }); }
-    if (!et && !ex && P.entreprise) { if (lines.length) lines.push({ t: '*******', star: true }); lines.push({ t: 'Entreprise : ' + P.entreprise, ul: true }); }
-    const banner = [];
-    if (ex) {
-      if (P.numTheme) banner.push({ t: 'THÈME : ' + P.numTheme });
-      if (P.sujet) banner.push({ t: P.sujet });
-      if (!banner.length) banner.push({ t: 'EXPOSÉ', bold: true });
-    } else {
-      banner.push({ t: (P.titreRapport || '').trim() || 'RAPPORT DE STAGE', bold: true });
-    }
-    if (et && !ex && P.entreprise) lines.push({ segs: [lab('Entreprise : '), { t: P.entreprise }], left: true });
-    const after = !ex && P.duree ? [{ t: 'Période de stage : ' + P.duree, ul: true }] : [];
-    const names = ex ? members() : (String(P.nom || '').trim() ? [String(P.nom).trim()] : []);
-    const left = { title: ex ? (names.length > 1 ? 'Membre du Groupe' + (P.numGroupe ? ' ' + P.numGroupe : '') : 'Présenté par') + ' :' : 'Rédigé par :', names: names, numbered: names.length > 1, color: et ? lc : undefined };
-    const right = String(P.enseignant || '').trim() ? { title: ex ? (et ? 'Sous la direction de :' : 'Par la Supervision de :') : 'Supervisé par :', name: String(P.enseignant).trim(), color: et ? lc : undefined } : null;
-    return { top: top, rest: rest, lines: lines, banner: banner, after: after, left: left, right: right, year: P.annee ? 'Année académique : ' + P.annee : '', yearSegs: et && P.annee ? [lab('Année Académique : '), { t: P.annee }] : null };
-  }
   function logoDataUrl(l) { return l ? 'data:image/png;base64,' + toB64(l.data) : ''; }
 
   function officialPreview(c) {
     c = c || state.cover;
-    const o = officialCover(c), col = c.color;
+    const o = officialCover(state.profile, c, state.mode), col = c.color;
     function segsHtml(a) { return a.map(function (g) { return '<span style="' + (g.color ? 'color:' + g.color + ';' : '') + (g.ul ? 'text-decoration:underline;' : '') + (g.b ? 'font-weight:700;' : '') + (g.i ? 'font-style:italic;' : '') + '">' + esc(g.t) + '</span>'; }).join(''); }
     function ln(x) {
       if (x.star) return '<div class="o-st">*******</div>';
@@ -683,7 +644,7 @@
       (logos.entreprise ? '<img alt="" src="' + logoDataUrl(logos.entreprise) + '">' : '<span></span>') + '</div>';
     const btxt = o.banner.map(function (x) { return '<div class="o-l' + (x.bold ? ' b' : '') + '">' + esc(x.t) + '</div>'; }).join('');
     const bst = c.banner;
-    const rib = bst === 'ruban' ? '<div class="o-rib"><i></i><div>' + btxt + '</div><i></i></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';
+    const rib = bst === 'ruban' ? '<div class="o-rib"><div></div><div>' + btxt + '</div><div></div></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';
     const names = o.left.names.length ? o.left.names.map(function (n, k) { return '<div class="o-l b">' + (o.left.numbered ? (k + 1) + '. ' : '') + esc(n) + '</div>'; }).join('') : '<div class="o-l">Ton nom</div>';
     const bt = '<div class="o-bt"><div><div class="o-l b u"' + (o.left.color ? ' style="color:' + o.left.color + '"' : '') + '>' + esc(o.left.title) + '</div>' + names + '</div>' +
       '<div>' + (o.right ? '<div class="o-l b u"' + (o.right.color ? ' style="color:' + o.right.color + '"' : '') + '>' + esc(o.right.title) + '</div><div class="o-l b">' + esc(o.right.name) + '</div>' : '') + '</div></div>';
@@ -704,7 +665,7 @@
       : '<div class="cp-t" style="color:' + (c.model === 'sobre' ? '#16211E' : col) + '">' + M().coverTitle + '</div>';
     return '<div class="cp" style="' + frame + '"><div class="cp-s">' + esc(P.ecole ? P.ecole.toUpperCase() : 'ÉCOLE') + '</div>' + title +
       '<div class="cp-m">' + esc(M().coverPrev(P)) + '</div>' +
-      '<div class="cp-m"><b>' + esc(state.mode === 'expose' ? (members().join(', ') || 'Ton nom') : (P.nom || 'Ton nom')) + '</b></div></div>';
+      '<div class="cp-m"><b>' + esc(state.mode === 'expose' ? (coverMembers(state.profile).join(', ') || 'Ton nom') : (P.nom || 'Ton nom')) + '</b></div></div>';
   }
 
   function logoStatusHtml(key) {
@@ -734,7 +695,7 @@
         '<input class="in" type="file" id="logo-' + key + '" data-logo="' + key + '" accept="image/png,image/jpeg,image/webp">' +
         '<div class="hint" id="logo-st-' + key + '">' + logoStatusHtml(key) + '</div></div>';
     }
-    const cc = coverCat || cat();
+    const cc = coverCat;
     const ctabs = COVER_CATS.map(function (k) { return '<button type="button" data-action="coverCat" data-cat="' + k[0] + '" class="' + (cc === k[0] ? 'on' : '') + '">' + k[1] + '</button>'; }).join('');
     const cards = (window.COVER_TEMPLATES || []).filter(function (t) { return t.cats.indexOf(cc) >= 0; }).map(function (t) {
       const cfg = tplCfg(t, c);
@@ -777,6 +738,10 @@
       '<div><h1>' + esc(M().writeH1) + '</h1><p class="lead">' + esc(M().writeLead) + '</p></div>' +
       notes +
       '<label class="opt"><input type="checkbox" data-research="1"' + (state.research ? ' checked' : '') + '><span><b>Appuyer la rédaction sur des sources fiables du web</b> : ' + (state.mode === 'expose' ? "le site cherche des pages sur chaque partie, rédige à partir de ce qu'il trouve" : "le site cherche le contexte (secteur, notions techniques, informations publiques) et rédige avec tes notes ; ce que tu as fait toi-même ne vient que de toi, et ce qui manque est marqué [À compléter]") + ', et ajoute les pages utilisées à la liste des sources en dernière page. Un peu plus long (20 à 40 s par partie).</span></label>' +
+      '<div class="opt"><label><b>Sommaire :</b> <select data-tocmode><option value="simple"' + (state.tocMode === 'simple' ? ' selected' : '') + '>Simple (s\'affiche partout, sans numéros de page)</option><option value="auto"' + (state.tocMode === 'auto' ? ' selected' : '') + '>Automatique avec numéros de page (Word : réponds Oui à la mise à jour)</option></select></label></div>' +
+      '<p class="hint" id="toc-hint"' + (state.tocMode === 'auto' ? '' : ' style="display:none"') + '>Dans Word, réponds « Oui » à la question sur la mise à jour des champs pour remplir le sommaire.</p>' +
+      '<div class="opt"><label><b>Saut de page :</b> <label><input type="checkbox" data-partpagebreak' + (state.partPageBreak ? ' checked' : '') + '><span>Chaque grande partie (niveau 1) commence sur une nouvelle page</span></label></div>' +
+      '<p class="hint" id="partpagebreak-hint" style="display:none">La conclusion et les sources commencent toujours sur une nouvelle page.</p>' +
       '<div class="tools"><button type="button" class="main" data-action="autoAll">Générer tout ' + (state.mode === 'expose' ? "l'exposé" : 'le rapport') + ' automatiquement</button></div><div class="hint">Un clic : le site rédige toutes les parties vides sans te poser de questions' + (state.mode === 'expose' ? ' (avec recherche de sources si la case est cochée)' : ' à partir de ton sujet, de tes missions et de la recherche ; les passages que seul toi peux écrire sont marqués [À compléter : …]') + '. Tu relis et corriges ensuite.</div>' +
       '<div class="tools"><button type="button" class="main" data-action="developAll">Développer toutes les parties remplies</button></div>' +
       '<div class="progress" id="dev-all" role="status"></div>' + blocks +
@@ -1297,6 +1262,8 @@ else if (a === 'useCustom') {
   app.addEventListener('change', function (e) {
     const el = e.target;
     if (el.getAttribute && el.getAttribute('data-research')) { state.research = !!el.checked; debouncedSave(); return; }
+    if (el.getAttribute && el.getAttribute('data-tocmode')) { state.tocMode = el.value; debouncedSave(); const hint = document.getElementById('toc-hint'); if (hint) hint.style.display = state.tocMode === 'auto' ? '' : 'none'; return; }
+    if (el.getAttribute && el.getAttribute('data-partpagebreak')) { state.partPageBreak = !!el.checked; debouncedSave(); return; }
     if (el.getAttribute && el.getAttribute('data-count')) { setGroupSize(parseInt(el.value, 10)); return; }
     const ffs = el.getAttribute && el.getAttribute('data-figfile');
     if (ffs && el.files && el.files.length) { readFigures(ffs, Array.prototype.slice.call(el.files)); return; }
@@ -1417,6 +1384,5 @@ else if (a === 'useCustom') {
   if (typeof window !== 'undefined') {
     window.state = state;
     window.docx = window.docx;
-    window.AppExport = window.AppExport;
   }
 })();

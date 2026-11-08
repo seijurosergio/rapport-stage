@@ -41,7 +41,7 @@ test('saveState renvoie true et stocke les données', () => {
   const raw = fakeLocalStorage.getItem('rapport-stage-v1');
   assert.ok(raw);
   const parsed = JSON.parse(raw);
-  assert.strictEqual(parsed.schemaVersion, 3);
+  assert.strictEqual(parsed.schemaVersion, 6);
   assert.strictEqual(parsed.profile.nom, 'Test');
 });
 
@@ -51,7 +51,7 @@ test('loadState migre l\'ancien format (notes/text)', () => {
   fakeLocalStorage.setItem('rapport-stage-v1', JSON.stringify(oldState));
   const loaded = Storage.loadState();
   assert.ok(loaded);
-  assert.strictEqual(loaded.schemaVersion, 3);
+  assert.strictEqual(loaded.schemaVersion, 6);
   assert.strictEqual(loaded.sections[0].notes, 'ancien texte');
   assert.strictEqual(loaded.sections[0].text, '');
 });
@@ -79,7 +79,7 @@ test('loadState migre même une structure incomplète', () => {
   fakeLocalStorage.setItem('rapport-stage-v1', JSON.stringify({ profile: { nom: 'Test', email: '' }, sections: [], cover: { model: 'officiel', color: '#0F6B5B' }, sources: [], citeStyle: 'apa', mode: 'stage' }));
   const loaded = Storage.loadState();
   assert.ok(loaded);
-  assert.strictEqual(loaded.schemaVersion, 3);
+  assert.strictEqual(loaded.schemaVersion, 6);
   assert.strictEqual(loaded.profile.nom, 'Test');
 });
 
@@ -125,6 +125,6 @@ test('savePending, loadPending, clearPendingData gèrent le paiement en attente'
   assert.strictEqual(Storage.loadPending(), null);
 });
 
-test('SCHEMA_VERSION est à 3', () => {
-  assert.strictEqual(Storage.SCHEMA_VERSION, 3);
+test('SCHEMA_VERSION est à 6', () => {
+  assert.strictEqual(Storage.SCHEMA_VERSION, 6);
 });

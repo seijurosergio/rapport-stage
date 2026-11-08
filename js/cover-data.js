@@ -19,10 +19,10 @@
     return m;
   }
 
-  function officialCover(profile, cover) {
+  function officialCover(profile, cover, mode) {
     const c = cover;
     const P = profile;
-    const ex = P.mode === 'expose';
+    const ex = mode === 'expose';
     const head = String(c.header || '').split(/\r?\n/).map(function (t) { return t.trim(); }).filter(Boolean).map(function (t, k) {
       const star = /^[*•]{2,}$/.test(t);
       return { t: star ? '*******' : t, star: star, bold: !star && (k === 0 || (c.etiquettes && k >= 4)), color: c.etiquettes && !star && (k === 0 || k === 2) ? c.headColor : undefined };

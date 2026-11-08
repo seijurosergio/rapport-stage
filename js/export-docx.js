@@ -27,23 +27,24 @@
     return rgb.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('').toUpperCase();
   }
 
-  function ribbonTail(hex, right) {
-    try {
-      if (typeof document !== 'undefined' && document.createElement) {
-        const cv = document.createElement('canvas');
-        if (!cv || !cv.getContext) return null;
-        const g = cv.getContext('2d');
-        if (!g) return null;
-        cv.width = 200; cv.height = 130;
-        g.fillStyle = '#' + hex; g.strokeStyle = '#111111'; g.lineWidth = 3; g.lineJoin = 'round';
-        g.beginPath();
-        if (!right) { g.moveTo(2, 8); g.lineTo(198, 8); g.lineTo(198, 122); g.lineTo(2, 122); g.lineTo(52, 65); }
-        else { g.moveTo(2, 8); g.lineTo(198, 8); g.lineTo(148, 65); g.lineTo(198, 122); g.lineTo(2, 122); }
-        g.closePath(); g.fill(); g.stroke();
-        return fromB64(cv.toDataURL('image/png').split(',')[1]);
-      }
-    } catch (e) {}
-    return null;
+  function lightenColor(hex, percent) {
+    const c = String(hex || '').replace('#', '');
+    if (!/^[0-9A-Fa-f]{6}$/.test(c)) return c;
+    const num = parseInt(c, 16);
+    const r = Math.min(255, Math.round(((num >> 16) & 255) + (255 - ((num >> 16) & 255)) * percent));
+    const g = Math.min(255, Math.round(((num >> 8) & 255) + (255 - ((num >> 8) & 255)) * percent));
+    const b = Math.min(255, Math.round((num & 255) + (255 - (num & 255)) * percent));
+    return (r << 16 | g << 8 | b).toString(16).padStart(6, '0').toUpperCase();
+  }
+
+  function textColorForBg(hex) {
+    const c = String(hex || '').replace('#', '');
+    if (!/^[0-9A-Fa-f]{6}$/.test(c)) return '000000';
+    const r = parseInt(c.substr(0, 2), 16);
+    const g = parseInt(c.substr(2, 2), 16);
+    const b = parseInt(c.substr(4, 2), 16);
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 186 ? '000000' : 'FFFFFF';
   }
 
   function fromB64(b) {
@@ -57,8 +58,8 @@
     return new Uint8Array(0);
   }
 
-  function buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, profile, cover, assets, modeInfo) {
-    const o = CoverData.officialCover(profile, cover), out = [];
+  function buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, profile, cover, assets, modeInfo, mode) {
+    const o = CoverData.officialCover(profile, cover, mode), out = [];
     const noneBorder = { style: d.BorderStyle.NONE, size: 0, color: 'auto' };
     const tblNoBorders = { top: noneBorder, bottom: noneBorder, left: noneBorder, right: noneBorder, insideHorizontal: noneBorder, insideVertical: noneBorder };
     function run(x, size, color) {
@@ -146,23 +147,43 @@
     } else if (bst === 'bandeau') {
       out.push(boxTable(bannerKids, null));
     } else {
-      const tailL = ribbonTail(col, false), tailR = ribbonTail(col, true);
-      const okT = !!(tailL && tailR);
-      const tailCell = function (data, align) {
-        return new d.TableCell({ borders: noBorders, width: { size: TAIL, type: d.WidthType.DXA }, verticalAlign: d.VerticalAlign.CENTER,
-          children: [new d.Paragraph({ alignment: align, children: [new d.ImageRun({ type: 'png', data: data, transformation: { width: 84, height: 55 } })] })] });
+      // Ruban style: 3-cell table (left 12%, center 76%, right 12%)
+      const lightCol = lightenColor(col, 0.25);
+      const bannerTextColor = textColorForBg(col);
+      const sideTextColor = textColorForBg(lightenColor(col, 0.25));
+      const sideCell = function (align) {
+        return new d.TableCell({
+          borders: noBorders,
+          width: { size: TAIL, type: d.WidthType.DXA },
+          shading: { type: d.ShadingType.CLEAR, fill: lightCol, color: 'auto' },
+          verticalAlign: d.VerticalAlign.CENTER,
+          margins: { top: 200, bottom: 200, left: 200, right: 200 },
+          children: bannerKids.map(function (x) {
+            return new d.Paragraph({
+              alignment: align,
+              spacing: { before: 60, after: 60 },
+              children: [new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: sideTextColor })]
+            });
+          })
+        });
       };
-      const mid = new d.TableCell({
+      const midCell = new d.TableCell({
         borders: noBorders,
-        width: { size: okT ? FULL - 2 * TAIL : FULL, type: d.WidthType.DXA },
+        width: { size: FULL - 2 * TAIL, type: d.WidthType.DXA },
         shading: { type: d.ShadingType.CLEAR, fill: col, color: 'auto' },
         verticalAlign: d.VerticalAlign.CENTER,
         margins: { top: 200, bottom: 200, left: 200, right: 200 },
-        children: bannerKids
+        children: bannerKids.map(function (x) {
+          return new d.Paragraph({
+            alignment: d.AlignmentType.CENTER,
+            spacing: { before: 60, after: 60 },
+            children: [new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: bannerTextColor })]
+          });
+        })
       });
       out.push(new d.Table({
-        width: { size: FULL, type: d.WidthType.DXA }, columnWidths: okT ? [TAIL, FULL - 2 * TAIL, TAIL] : [FULL], borders: tblNoBorders,
-        rows: [new d.TableRow({ children: okT ? [tailCell(tailL, d.AlignmentType.RIGHT), mid, tailCell(tailR, d.AlignmentType.LEFT)] : [mid] })]
+        width: { size: FULL, type: d.WidthType.DXA }, columnWidths: [TAIL, FULL - 2 * TAIL, TAIL], borders: tblNoBorders,
+        rows: [new d.TableRow({ children: [sideCell(d.AlignmentType.LEFT), midCell, sideCell(d.AlignmentType.RIGHT)] })]
       }));
     }
     o.after.forEach(function (x, k) { out.push(para(x, 22, d.AlignmentType.CENTER, 50)); out.splice(out.length - 1, 1, new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { before: k ? 0 : 300, after: 50 }, children: [run(x, 22)] })); });
@@ -232,7 +253,7 @@
 
     let cover = [];
     if (model === 'officiel') {
-      cover = buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, state.profile, state.cover, assets, project.modeInfo);
+      cover = buildOfficialCover(d, FONT, col, centered, none, noBorders, cellNoBorders, state.profile, state.cover, assets, project.modeInfo, state.mode);
     } else {
       const mi = project.modeInfo;
       if (assets.logos.ecole || (mi.logoEntreprise && assets.logos.entreprise)) {
@@ -277,19 +298,67 @@
     const lb = labels(state.sections);
     let figNo = 0;
     main.push(centered('SOMMAIRE', 30, true, 0, 240, headColor));
-    main.push(new d.TableOfContents('Sommaire', { hyperlink: true, headingStyleRange: '1-2' }));
+
+    const tocMode = state.tocMode === 'auto' ? 'auto' : 'simple';
+    if (tocMode === 'auto') {
+      main.push(new d.TableOfContents('Sommaire', { hyperlink: true, headingStyleRange: '1-2' }));
+    } else {
+      // Simple TOC: manual paragraphs with bookmarks and internal hyperlinks
+      const tocBookmarks = [];
+      state.sections.forEach(function (s, i) {
+        const title = (lb[i] ? lb[i] + '  ' : '') + (s.level === 1 ? s.title.toUpperCase() : s.title);
+        const bookmarkName = 'toc_' + s.id;
+        tocBookmarks.push({ id: s.id, title: title, level: s.level, bookmarkName: bookmarkName });
+        main.push(new d.Paragraph({
+          alignment: d.AlignmentType.LEFT,
+          spacing: { before: 60, after: 60, line: 360 },
+          indent: s.level === 2 ? { left: 720 } : undefined,
+          tabStops: [{ type: d.TabStopType.RIGHT, position: 8500, leader: d.LeaderType.DOT }],
+          children: [
+            new d.BookmarkStart({ name: bookmarkName, id: i }),
+            new d.TextRun({ text: title, font: FONT, size: s.level === 1 ? 24 : 22, bold: s.level === 1, color: '000000' }),
+            new d.BookmarkEnd({ id: i }),
+            new d.TextRun({ children: [new d.Tab()], font: FONT, size: s.level === 1 ? 24 : 22 }),
+            new d.TextRun({ text: '', font: FONT, size: s.level === 1 ? 24 : 22 }) // page number placeholder
+          ]
+        }));
+      });
+    }
 
     if (figCount(state, assets) > 0) {
       main.push(new d.Paragraph({ pageBreakBefore: true, alignment: d.AlignmentType.CENTER, spacing: { after: 240 },
         children: [new d.TextRun({ text: 'LISTE DES FIGURES', font: FONT, size: 30, bold: true, color: headColor })] }));
-      main.push(new d.TableOfContents('Liste des figures', { hyperlink: true, captionLabelIncludingNumbers: 'Figure' }));
+      if (tocMode === 'auto') {
+        main.push(new d.TableOfContents('Liste des figures', { hyperlink: true, captionLabelIncludingNumbers: 'Figure' }));
+      } else {
+        // Simple figure list
+        let figNo = 0;
+        state.sections.forEach(function (s) {
+          (assets.figs[s.id] || []).forEach(function (f) {
+            figNo += 1;
+            main.push(new d.Paragraph({
+              alignment: d.AlignmentType.LEFT,
+              spacing: { before: 60, after: 60, line: 360 },
+              tabStops: [{ type: d.TabStopType.RIGHT, position: 8500, leader: d.LeaderType.DOT }],
+              children: [
+                new d.TextRun({ text: 'Figure ' + figNo + (f.cap ? ' : ' + f.cap : ''), font: FONT, size: 22, color: '000000' }),
+                new d.TextRun({ children: [new d.Tab()], font: FONT, size: 22 }),
+                new d.TextRun({ text: '', font: FONT, size: 22 })
+              ]
+            }));
+          });
+        });
+      }
     }
 
     state.sections.forEach(function (s, i) {
       const title = (lb[i] ? lb[i] + '  ' : '') + (s.level === 1 ? s.title.toUpperCase() : s.title);
+      const isConclusion = /^conclusion$/i.test(s.title);
+      const isMajorPart = s.level === 1 && !s.nonum && !/^introduction$/i.test(s.title);
+      const needsPageBreak = i === 0 || isConclusion || (state.partPageBreak && isMajorPart);
       main.push(new d.Paragraph({
         heading: s.level === 1 ? d.HeadingLevel.HEADING_1 : d.HeadingLevel.HEADING_2,
-        pageBreakBefore: i === 0,
+        pageBreakBefore: needsPageBreak,
         keepNext: true,
         spacing: { before: i === 0 ? 0 : (s.level === 1 ? 480 : 300), after: 160 },
         children: [new d.TextRun({ text: title, font: FONT })]
@@ -355,7 +424,7 @@
 
     return new d.Document({
       creator: 'Assistant rapport de stage et exposé',
-      title: project.M().docTitle,
+      title: project.modeInfo.docTitle,
       features: { updateFields: true },
       styles: {
         default: { document: { run: { font: FONT, size: 24 } } },
@@ -384,5 +453,5 @@
     return (s.text && s.text.trim()) ? s.text : (s.notes || '');
   }
 
-  return { buildDocument, readableColor, ribbonTail, buildOfficialCover, fromB64, figCount, finalText };
+  return { buildDocument, readableColor, lightenColor, textColorForBg, buildOfficialCover, fromB64, figCount, finalText };
 });
