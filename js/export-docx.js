@@ -111,7 +111,6 @@
     const bst = cover.banner;
     out.push(new d.Paragraph({ spacing: { before: 500, after: 0 }, children: [] }));
     const txtColor = (bst === 'ruban' || bst === 'bandeau') ? (cover.bannerText ? cover.bannerText.replace('#', '') : 'FFFFFF') : (bst === 'lignes' ? col : '000000');
-    const bannerKids = o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); });
     const FULL = 9026, TAIL = 1400;
     function boxTable(kids, border) {
       const bd = border ? { style: border.style, size: border.size, color: col } : noneBorder;
@@ -141,11 +140,11 @@
           children: [new d.TextRun({ text: x.t, font: FONT, size: 28, bold: true, color: col })] }));
       });
     } else if (bst === 'encadre') {
-      out.push(boxTable(bannerKids, { style: d.BorderStyle.SINGLE, size: 18 }));
+      out.push(boxTable(o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); }), { style: d.BorderStyle.SINGLE, size: 18 }));
     } else if (bst === 'double') {
-      out.push(boxTable(bannerKids, { style: d.BorderStyle.DOUBLE, size: 18 }));
+      out.push(boxTable(o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); }), { style: d.BorderStyle.DOUBLE, size: 18 }));
     } else if (bst === 'bandeau') {
-      out.push(boxTable(bannerKids, null));
+      out.push(boxTable(o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); }), null));
     } else {
       // Ruban style: 3-cell table (left 12%, center 76%, right 12%)
       const lightCol = lightenColor(col, 0.25);
@@ -158,13 +157,11 @@
           shading: { type: d.ShadingType.CLEAR, fill: lightCol, color: 'auto' },
           verticalAlign: d.VerticalAlign.CENTER,
           margins: { top: 200, bottom: 200, left: 200, right: 200 },
-          children: bannerKids.map(function (x) {
-            return new d.Paragraph({
-              alignment: align,
-              spacing: { before: 60, after: 60 },
-              children: [new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: sideTextColor })]
-            });
-          })
+          children: [new d.Paragraph({
+            alignment: align,
+            spacing: { before: 60, after: 60 },
+            children: []
+          })]
         });
       };
       const midCell = new d.TableCell({
@@ -173,13 +170,11 @@
         shading: { type: d.ShadingType.CLEAR, fill: col, color: 'auto' },
         verticalAlign: d.VerticalAlign.CENTER,
         margins: { top: 200, bottom: 200, left: 200, right: 200 },
-        children: bannerKids.map(function (x) {
-          return new d.Paragraph({
-            alignment: d.AlignmentType.CENTER,
-            spacing: { before: 60, after: 60 },
-            children: [new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: bannerTextColor })]
-          });
-        })
+        children: [new d.Paragraph({
+          alignment: d.AlignmentType.CENTER,
+          spacing: { before: 60, after: 60 },
+          children: o.banner.map(function (x) { return new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: bannerTextColor }); }).reduce(function (acc, run) { if (acc.length === 0) return [run]; var last = acc[acc.length - 1]; return acc.concat(' ' + run.text ? [run] : []); }, [])
+        })]
       });
       out.push(new d.Table({
         width: { size: FULL, type: d.WidthType.DXA }, columnWidths: [TAIL, FULL - 2 * TAIL, TAIL], borders: tblNoBorders,

@@ -633,15 +633,14 @@
     const o = officialCover(state.profile, c, state.mode), col = c.color;
     function segsHtml(a) { return a.map(function (g) { return '<span style="' + (g.color ? 'color:' + g.color + ';' : '') + (g.ul ? 'text-decoration:underline;' : '') + (g.b ? 'font-weight:700;' : '') + (g.i ? 'font-style:italic;' : '') + '">' + esc(g.t) + '</span>'; }).join(''); }
     function ln(x) {
-      if (x.star) return '<div class="o-st">*******</div>';
-      if (x.row) return '<div class="o-row"><span>' + segsHtml(x.row[0]) + '</span><span>' + segsHtml(x.row[1]) + '</span></div>';
-      if (x.segs) return '<div class="o-l' + (x.left ? ' o-left' : '') + '">' + segsHtml(x.segs) + '</div>';
-      if (x.color) return '<div class="o-l' + (x.bold ? ' b' : '') + '" style="color:' + x.color + '">' + esc(x.t) + '</div>';
       return '<div class="o-l' + (x.bold ? ' b' : '') + (x.ul ? ' u' : '') + '">' + esc(x.t) + '</div>';
     }
     const lg = '<div class="o-lg">' + (logos.ecole ? '<img alt="" src="' + logoDataUrl(logos.ecole) + '">' : '<span></span>') +
       '<div class="o-c">' + o.top.map(ln).join('') + '</div>' +
       (logos.entreprise ? '<img alt="" src="' + logoDataUrl(logos.entreprise) + '">' : '<span></span>') + '</div>';
+    const lightCol = bst === 'ruban' ? lightenColor(col, 0.25) : col;
+    const bannerTextColor = bst === 'ruban' ? textColorForBg(col) : (c.bannerText || '#fff');
+    const sideTextColor = bst === 'ruban' ? textColorForBg(lightenColor(col, 0.25)) : '000000';
     const btxt = o.banner.map(function (x) { return '<div class="o-l' + (x.bold ? ' b' : '') + '">' + esc(x.t) + '</div>'; }).join('');
     const bst = c.banner;
     const rib = bst === 'ruban' ? '<div class="o-rib"><div></div><div>' + btxt + '</div><div></div></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';

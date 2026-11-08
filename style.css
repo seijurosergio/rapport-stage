@@ -70,14 +70,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sa
 .cpo .o-st{letter-spacing:1px;font-size:8px}
 .cpo .o-rib{display:table;width:100%;table-layout:fixed;margin:10px 0;border-collapse:collapse}
 .cpo .o-rib > div{display:table-cell;vertical-align:middle;padding:10px 6px;font-size:10px;text-align:center}
-.cpo .o-rib > div:first-child{width:12%;background:var(--ct);opacity:.85}
-.cpo .o-rib > div:last-child{width:12%;background:var(--ct);opacity:.85}
-.cpo .o-rib > div:nth-child(2){width:76%;background:var(--cc);color:var(--ct,#fff);font-weight:700}
+.cpo .o-rib > div:first-child{width:12%;background:var(--cc-light);opacity:.85}
+.cpo .o-rib > div:last-child{width:12%;background:var(--cc-light);opacity:.85}
+.cpo .o-rib > div:nth-child(2){width:76%;background:var(--cc);color:var(--ct);font-weight:700}
 .cpo .o-row{display:flex;justify-content:space-between;gap:6px;margin:5px 0;font-size:9px}
 .cpo .o-left{text-align:left}
-.cpo .o-rib div{flex:1;background:var(--cc);color:var(--ct,#fff);padding:10px 6px;font-size:10px;margin:6px 0}
 .cpo .o-bn{margin:10px 0;padding:10px 6px;font-size:10px}
-.cpo .o-bandeau{background:var(--cc);color:var(--ct,#fff)}
+.cpo .o-bandeau{background:var(--cc);color:var(--ct)}
 .cpo .o-encadre{border:2px solid var(--cc)}
 .cpo .o-double{border:4px double var(--cc)}
 .cpo .o-lignes{border-top:2px solid var(--cc);border-bottom:2px solid var(--cc);color:var(--cc);font-weight:700}
