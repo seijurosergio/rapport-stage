@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
   }
 
   let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = null; } }
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   if (!body || typeof body !== 'object') {
     return pay.send(res, 400, { status: 'error', message: 'Demande illisible.' });
   }
@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
       return pay.send(res, 502, { status: 'error', message: "Impossible d'ouvrir la page de paiement. Réessaie dans un moment." });
     }
     return pay.send(res, 200, { status: 'ok', id: tx.id, nonce: n, url: tok.data.url, price: pay.price() });
-  } catch (e) {
+  } catch {
     return pay.send(res, 502, { status: 'error', message: 'Impossible de joindre le service de paiement. Réessaie dans un moment.' });
   }
 };

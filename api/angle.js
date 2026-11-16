@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
     const p = await ask(SYSTEM_P, ctx + '\n\n' + qa, 600, 'angle-problematique');
     if (!p || typeof p.problematique !== 'string' || !p.problematique.trim()) return send(res, 502, { status: 'error', message: 'Réponse inutilisable. Réessaie.' });
     return send(res, 200, { status: 'ok', problematique: p.problematique.trim().slice(0, 400), angle: clean(p.angle, 400) });
-  } catch (e) {
+  } catch {
     return send(res, 502, { status: 'error', message: 'Impossible de joindre le service. Réessaie dans un moment.' });
   }
 };

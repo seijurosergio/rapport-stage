@@ -37,7 +37,7 @@ async function fedapay(method, path, body) {
     body: body ? JSON.stringify(body) : undefined
   });
   let data = null;
-  try { data = await r.json(); } catch (e) { data = null; }
+  try { data = await r.json(); } catch { data = null; }
   return { ok: r.ok, status: r.status, data: data };
 }
 

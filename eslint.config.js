@@ -44,7 +44,8 @@ module.exports = [
       'no-var': 'error',
       'prefer-const': 'error',
       'no-undef': 'error',
-      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }]
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
+      'no-unused-vars': ['error', { args: 'after-used', caughtErrors: 'none' }]
     }
   },
   {
@@ -77,7 +78,8 @@ module.exports = [
       'no-var': 'error',
       'prefer-const': 'error',
       'no-undef': 'error',
-      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }]
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
+      'no-unused-vars': ['error', { args: 'after-used', caughtErrors: 'none' }]
     }
   },
   {
@@ -113,7 +115,8 @@ module.exports = [
       'no-var': 'error',
       'prefer-const': 'error',
       'no-undef': 'error',
-      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }]
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
+      'no-unused-vars': ['error', { args: 'after-used', caughtErrors: 'none' }]
     }
   },
   {
@@ -127,7 +130,8 @@ module.exports = [
     },
     rules: {
       'no-var': 'error',
-      'prefer-const': 'error'
+      'prefer-const': 'error',
+      'no-unused-vars': ['error', { args: 'after-used', caughtErrors: 'none' }]
     }
   }
 ];

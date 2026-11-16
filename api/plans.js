@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
     }).filter(function (pl) { return pl.parties.length >= 3; });
     if (!plans.length) return send(res, 502, { status: 'error', message: 'Réponse inutilisable. Réessaie.' });
     return send(res, 200, { status: 'ok', plans: plans });
-  } catch (e) {
+  } catch {
     return send(res, 502, { status: 'error', message: 'Impossible de joindre le service. Réessaie dans un moment.' });
   }
 };

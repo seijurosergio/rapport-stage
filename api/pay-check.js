@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
     const status = String(tx.status || 'unknown');
     const paid = status === 'approved' && Number.isFinite(amount) && amount >= pay.price();
     return pay.send(res, 200, { status: status, paid: paid });
-  } catch (e) {
+  } catch {
     return pay.send(res, 502, { status: 'error', paid: false, message: 'Impossible de vérifier le paiement. Réessaie dans un moment.' });
   }
 };

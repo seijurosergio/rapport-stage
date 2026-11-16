@@ -15,7 +15,7 @@
 
   function restoreFocus() {
     if (lastFocused && typeof lastFocused.focus === 'function') {
-      try { lastFocused.focus({ preventScroll: true }); } catch (e) { lastFocused.focus(); }
+      try { lastFocused.focus({ preventScroll: true }); } catch { lastFocused.focus(); }
     }
     lastFocused = null;
   }
@@ -90,7 +90,7 @@
         try {
           const style = getComputedStyle(dlg);
           return style.transitionDuration !== '0s' && style.transitionDuration !== '0ms';
-        } catch (e) {
+        } catch {
           return false;
         }
       }

@@ -54,7 +54,7 @@
         for (i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
         return u;
       }
-    } catch (e) {}
+    } catch {}
     return new Uint8Array(0);
   }
 

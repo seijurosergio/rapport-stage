@@ -18,7 +18,7 @@
       const raw = localStorage.getItem(key);
       if (!raw) return defaultValue;
       return JSON.parse(raw);
-    } catch (e) {
+    } catch {
       return defaultValue;
     }
   }
@@ -27,7 +27,7 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -36,7 +36,7 @@
     try {
       localStorage.removeItem(key);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }

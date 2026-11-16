@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { try { ({ JSDOM } = require('/tmp/jt/node_modules/jsdom')); } catch (e2) { JSDOM = null; } }
+let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch { try { ({ JSDOM } = require('/tmp/jt/node_modules/jsdom')); } catch (e2) { JSDOM = null; } }
 
 const ROOT = path.join(__dirname, '..');
 function boot() {
@@ -121,6 +121,7 @@ test('fetchWithTimeout : avorte après 60 secondes', { skip: !JSDOM }, async () 
   const t = boot(), w = t.w;
   let abortCalled = false;
   const originalFetch = w.fetch;
+  // eslint-disable-next-line no-unused-vars
   w.fetch = function (url, opts) {
     const controller = new w.AbortController();
     setTimeout(() => controller.abort(), 10);

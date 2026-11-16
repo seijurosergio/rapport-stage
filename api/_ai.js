@@ -24,9 +24,9 @@ function send(res, code, obj) {
 }
 function parseJson(raw) {
   const t = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  try { return JSON.parse(t); } catch (e) { /* extraction */ }
+  try { return JSON.parse(t); } catch { /* extraction */ }
   const a = t.indexOf('{'), b = t.lastIndexOf('}');
-  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) { /* abandon */ } }
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch { /* abandon */ } }
   return null;
 }
 // Recolle les blocs de texte d'une réponse. Avec la recherche web, le texte est découpé en
@@ -40,7 +40,7 @@ function joinText(content) {
 function logUsage(tag, reply) {
   try {
     console.log('usage ' + JSON.stringify({ route: tag, model: reply && reply.model, stop: reply && reply.stop_reason, usage: reply && reply.usage }));
-  } catch (e) { /* ignoré */ }
+  } catch { /* ignoré */ }
 }
 // Gère méthode, interrupteur, clé, limite, corps ; renvoie le corps ou null (réponse déjà envoyée).
 function guard(req, res, key, max) {
@@ -50,7 +50,7 @@ function guard(req, res, key, max) {
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'inconnu';
   if (!mockOn() && limited(key, ip, max)) { send(res, 429, { status: 'error', message: 'Trop de demandes en peu de temps. Réessaie dans une heure.' }); return null; }
   let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = null; } }
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   if (!body || typeof body !== 'object') { send(res, 400, { status: 'error', message: 'Demande illisible.' }); return null; }
   return body;
 }

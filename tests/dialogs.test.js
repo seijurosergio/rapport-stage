@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { try { ({ JSDOM } = require('/tmp/jt/node_modules/jsdom')); } catch (e2) { JSDOM = null; } }
+let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch { try { ({ JSDOM } = require('/tmp/jt/node_modules/jsdom')); } catch (e2) { JSDOM = null; } }
 
 const ROOT = path.join(__dirname, '..');
 
@@ -61,7 +61,8 @@ test('showMessage avec type error', { skip: !JSDOM }, () => {
 test('askConfirm crée une boîte modale avec les bons attributs', { skip: !JSDOM }, async () => {
   const w = boot();
   // Appeler askConfirm mais ne pas attendre la promesse
-  const promise = w.AppDialogs.askConfirm('Confirmer ?', { oui: 'Oui', non: 'Non' });
+  // eslint-disable-next-line no-unused-vars
+  const _promise = w.AppDialogs.askConfirm('Confirmer ?', { oui: 'Oui', non: 'Non' });
   await wait(100);
   const dlg = w.document.querySelector('.dlg-confirm');
   assert.ok(dlg, 'Boîte de confirmation créée');
@@ -78,7 +79,8 @@ test('askConfirm crée une boîte modale avec les bons attributs', { skip: !JSDO
 
 test('askConfirm a les bons boutons', { skip: !JSDOM }, async () => {
   const w = boot();
-  const promise = w.AppDialogs.askConfirm('Confirmer ?', { oui: 'Oui', non: 'Non' });
+  // eslint-disable-next-line no-unused-vars
+  const _promise = w.AppDialogs.askConfirm('Confirmer ?', { oui: 'Oui', non: 'Non' });
   await wait(100);
   const dlg = w.document.querySelector('.dlg-confirm');
   const btnOk = dlg.querySelector('.dlg-btn-ok');
@@ -95,7 +97,8 @@ test('askConfirm a les bons boutons', { skip: !JSDOM }, async () => {
 
 test('focus initial sur bouton Oui', { skip: !JSDOM }, async () => {
   const w = boot();
-  const promise = w.AppDialogs.askConfirm('Confirmer ?');
+  // eslint-disable-next-line no-unused-vars
+  const _promise = w.AppDialogs.askConfirm('Confirmer ?');
   await wait(100);
   const btnOk = w.document.querySelector('.dlg-btn-ok');
   // Le focus devrait être sur le bouton Oui
@@ -109,7 +112,8 @@ test('focus initial sur bouton Oui', { skip: !JSDOM }, async () => {
 
 test('Échap annule la boîte', { skip: !JSDOM }, async () => {
   const w = boot();
-  const promise = w.AppDialogs.askConfirm('Confirmer ?');
+  // eslint-disable-next-line no-unused-vars
+  const _promise = w.AppDialogs.askConfirm('Confirmer ?');
   await wait(100);
   const escEvent = new w.KeyboardEvent('keydown', { key: 'Escape' });
   w.document.dispatchEvent(escEvent);

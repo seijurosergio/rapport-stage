@@ -1,10 +1,11 @@
 (function () {
   'use strict';
 
-  const { esc, words, roman, labels, slug, parseCustom, fmtCite, todayFr, isSafeUrl, fetchWithTimeout, makeDebouncedSave, NONUM, nid, sec } = window.AppUtils;
+  const { esc, words, labels, slug, parseCustom, fmtCite, todayFr, isSafeUrl, fetchWithTimeout, makeDebouncedSave, sec } = window.AppUtils;
   const { loadState, saveState, loadLogos, saveLogos, loadFigsData, saveFigsData, loadPending, savePending, clearPendingData, toB64 } = window.AppStorage;
   const { showMessage, askConfirm } = window.AppDialogs;
   const { officialCover, cat: coverCatFn, members: coverMembers } = window.AppCoverData;
+  const { lightenColor, textColorForBg } = window.AppExport;
 
   /* Nom affiché en haut des écrans : à remplacer par le vrai nom de l'outil. */
   const APP_NAME = 'Assistant rapport';
@@ -182,7 +183,6 @@
   function flushSave() { saveUtils.flushSave(); }
 
   loadLogos();
-  loadFigs();
 
   function finalText(s) {
     return (s.text && s.text.trim()) ? s.text : (s.notes || '');
@@ -204,7 +204,6 @@
       '<div class="stepsnav">' + st(1, 'Infos') + st(2, 'Plan') + st(3, 'Rédaction') + '</div></div>';
   }
 
-  const FIG_KEY = 'rapport-stage-figs';
   const MAX_FIGS_SECTION = 8, MAX_FIGS_TOTAL = 16;
   let figs = {};
   function figCount() {
@@ -460,7 +459,7 @@
   }
   function coverInfoHtml() {
     const P = state.profile, ex = state.mode === 'expose';
-    const L = coverCat === 'lycee';
+    const cc = coverCat || coverCatFn(state.profile); const L = cc === 'lycee';
     const fields = ex
       ? [['ecole', L ? 'Établissement' : 'École ou université'], ['departement', L ? 'Série ou option' : 'Département'], ['filiere', L ? 'Classe' : 'Filière ou spécialité'], ['annee', 'Année'],
          ['matiere', 'Matière ou UE'], ['sujet', "Thème de l'exposé"], ['numTheme', 'Numéro du thème'], ['numGroupe', 'Numéro du groupe'], ['enseignant', 'Enseignant (supervision)']]
@@ -478,7 +477,7 @@
     const pv = document.getElementById('cover-prev'); if (pv) pv.innerHTML = coverPreview();
     const g = document.getElementById('gal');
     if (g) {
-      const cc = coverCat;
+      const cc = coverCat || coverCatFn(state.profile);
       g.innerHTML = (window.COVER_TEMPLATES || []).filter(function (t) { return t.cats.indexOf(cc) >= 0; }).map(function (t) {
         return '<button type="button" class="gcard' + (state.cover.template === t.id ? ' on' : '') + '" data-action="pickCover" data-tid="' + t.id + '" aria-pressed="' + (state.cover.template === t.id) + '"><div class="gp">' + coverPreview(tplCfg(t, state.cover)) + '</div><div class="gn">' + esc(t.nom) + '</div></button>';
       }).join('');
@@ -488,7 +487,7 @@
     const known = [DEFAULT_HEADER].concat(HEADER_PRESETS.map(function (h) { return h[2]; }).filter(function (x) { return x !== null; }));
     (window.COVER_TEMPLATES || []).forEach(function (t) { if (typeof t.header === 'string') known.push(t.header); });
     if (known.indexOf(state.cover.header) >= 0) {
-      const k = coverCat;
+      const k = coverCat || coverCatFn(state.profile);
       state.cover.header = k === 'lycee' ? HEADER_PRESETS.filter(function (h) { return h[0] === 'lycee'; })[0][2] : k === 'pro' ? '' : DEFAULT_HEADER;
     }
     state.cover.template = '';
@@ -511,7 +510,6 @@
     return '<div class="field"><label for="f-niveau">Ton niveau d\'études</label><select class="in" id="f-niveau" data-field="niveau">' + opts + '</select><div class="hint">Les questions et les pages de garde proposées s\'adaptent à ton niveau.</div></div>';
   }
   function framingHtml() {
-    const opts = NIVEAUX.map(function (n) { return '<option value="' + n[0] + '"' + (state.profile.niveau === n[0] ? ' selected' : '') + '>' + esc(n[1]) + '</option>'; }).join('');
     return '<div class="field"><label for="f-pages">Nombre de pages visé (facultatif)</label>' +
       '<input class="in" id="f-pages" type="number" min="1" max="200" inputmode="numeric" data-field="pages" placeholder="Ex : 25" value="' + esc(state.profile.pages) + '"></div>';
   }
@@ -558,10 +556,11 @@
       .catch(function (e) { return { status: 'error', message: e && e.name === 'AbortError' ? 'Le service met trop de temps, réessaie.' : 'Connexion impossible. Réessaie.' }; });
   }
   function renderStep1(error) {
+    const cc = coverCat || coverCatFn(state.profile);
     const f = M().fields.map(function (x) {
       if (x[0] === '__group') return groupHtml();
       let lab = x[1], ph = x[2];
-      if (coverCat === 'lycee' && LABELS_LYCEE[x[0]]) { lab = LABELS_LYCEE[x[0]][0]; ph = LABELS_LYCEE[x[0]][1]; }
+      if (cc === 'lycee' && LABELS_LYCEE[x[0]]) { lab = LABELS_LYCEE[x[0]][0]; ph = LABELS_LYCEE[x[0]][1]; }
       return '<div class="field"><label for="f-' + x[0] + '">' + lab + '</label>' +
         '<input class="in" id="f-' + x[0] + '" type="text" data-field="' + x[0] + '" placeholder="' + esc(ph) + '" value="' + esc(state.profile[x[0]]) + '"></div>';
     }).join('');
@@ -638,16 +637,15 @@
     const lg = '<div class="o-lg">' + (logos.ecole ? '<img alt="" src="' + logoDataUrl(logos.ecole) + '">' : '<span></span>') +
       '<div class="o-c">' + o.top.map(ln).join('') + '</div>' +
       (logos.entreprise ? '<img alt="" src="' + logoDataUrl(logos.entreprise) + '">' : '<span></span>') + '</div>';
-    const lightCol = bst === 'ruban' ? lightenColor(col, 0.25) : col;
-    const bannerTextColor = bst === 'ruban' ? textColorForBg(col) : (c.bannerText || '#fff');
-    const sideTextColor = bst === 'ruban' ? textColorForBg(lightenColor(col, 0.25)) : '000000';
     const btxt = o.banner.map(function (x) { return '<div class="o-l' + (x.bold ? ' b' : '') + '">' + esc(x.t) + '</div>'; }).join('');
     const bst = c.banner;
+    const lightCol = bst === 'ruban' ? lightenColor(col, 0.25) : col;
+    const bannerTextColor = bst === 'ruban' ? textColorForBg(col) : (c.bannerText || '#fff');
     const rib = bst === 'ruban' ? '<div class="o-rib"><div></div><div>' + btxt + '</div><div></div></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';
     const names = o.left.names.length ? o.left.names.map(function (n, k) { return '<div class="o-l b">' + (o.left.numbered ? (k + 1) + '. ' : '') + esc(n) + '</div>'; }).join('') : '<div class="o-l">Ton nom</div>';
     const bt = '<div class="o-bt"><div><div class="o-l b u"' + (o.left.color ? ' style="color:' + o.left.color + '"' : '') + '>' + esc(o.left.title) + '</div>' + names + '</div>' +
       '<div>' + (o.right ? '<div class="o-l b u"' + (o.right.color ? ' style="color:' + o.right.color + '"' : '') + '>' + esc(o.right.title) + '</div><div class="o-l b">' + esc(o.right.name) + '</div>' : '') + '</div></div>';
-    return '<div class="cpo" style="--cc:' + col + ';--ct:' + (c.bannerText || '#fff') + ';' + (c.art ? 'border:7px dotted ' + (c.artColor || col) : '') + '">' + lg + o.rest.map(ln).join('') + o.lines.map(ln).join('') + rib + o.after.map(ln).join('') + bt +
+    return '<div class="cpo" style="--cc:' + col + ';--cc-light:' + lightCol + ';--ct:' + bannerTextColor + ';' + (c.art ? 'border:7px dotted ' + (c.artColor || col) : '') + '">' + lg + o.rest.map(ln).join('') + o.lines.map(ln).join('') + rib + o.after.map(ln).join('') + bt +
       (o.yearSegs ? '<div class="o-yr" style="text-decoration:none">' + segsHtml(o.yearSegs) + '</div>' : o.year ? '<div class="o-yr">' + esc(o.year) + '</div>' : '') + '</div>';
   }
 
@@ -694,7 +692,7 @@
         '<input class="in" type="file" id="logo-' + key + '" data-logo="' + key + '" accept="image/png,image/jpeg,image/webp">' +
         '<div class="hint" id="logo-st-' + key + '">' + logoStatusHtml(key) + '</div></div>';
     }
-    const cc = coverCat;
+    const cc = coverCat || coverCatFn(state.profile);
     const ctabs = COVER_CATS.map(function (k) { return '<button type="button" data-action="coverCat" data-cat="' + k[0] + '" class="' + (cc === k[0] ? 'on' : '') + '">' + k[1] + '</button>'; }).join('');
     const cards = (window.COVER_TEMPLATES || []).filter(function (t) { return t.cats.indexOf(cc) >= 0; }).map(function (t) {
       const cfg = tplCfg(t, c);
@@ -739,8 +737,8 @@
       '<label class="opt"><input type="checkbox" data-research="1"' + (state.research ? ' checked' : '') + '><span><b>Appuyer la rédaction sur des sources fiables du web</b> : ' + (state.mode === 'expose' ? "le site cherche des pages sur chaque partie, rédige à partir de ce qu'il trouve" : "le site cherche le contexte (secteur, notions techniques, informations publiques) et rédige avec tes notes ; ce que tu as fait toi-même ne vient que de toi, et ce qui manque est marqué [À compléter]") + ', et ajoute les pages utilisées à la liste des sources en dernière page. Un peu plus long (20 à 40 s par partie).</span></label>' +
       '<div class="opt"><label><b>Sommaire :</b> <select data-tocmode><option value="simple"' + (state.tocMode === 'simple' ? ' selected' : '') + '>Simple (s\'affiche partout, sans numéros de page)</option><option value="auto"' + (state.tocMode === 'auto' ? ' selected' : '') + '>Automatique avec numéros de page (Word : réponds Oui à la mise à jour)</option></select></label></div>' +
       '<p class="hint" id="toc-hint"' + (state.tocMode === 'auto' ? '' : ' style="display:none"') + '>Dans Word, réponds « Oui » à la question sur la mise à jour des champs pour remplir le sommaire.</p>' +
-      '<div class="opt"><label><b>Saut de page :</b> <label><input type="checkbox" data-partpagebreak' + (state.partPageBreak ? ' checked' : '') + '><span>Chaque grande partie (niveau 1) commence sur une nouvelle page</span></label></div>' +
-      '<p class="hint" id="partpagebreak-hint" style="display:none">La conclusion et les sources commencent toujours sur une nouvelle page.</p>' +
+      '<div class="opt"><label><input type="checkbox" data-partpagebreak' + (state.partPageBreak ? ' checked' : '') + '><b>Saut de page :</b> <span>Chaque grande partie (niveau 1) commence sur une nouvelle page</span></label></div>' +
+
       '<div class="tools"><button type="button" class="main" data-action="autoAll">Générer tout ' + (state.mode === 'expose' ? "l'exposé" : 'le rapport') + ' automatiquement</button></div><div class="hint">Un clic : le site rédige toutes les parties vides sans te poser de questions' + (state.mode === 'expose' ? ' (avec recherche de sources si la case est cochée)' : ' à partir de ton sujet, de tes missions et de la recherche ; les passages que seul toi peux écrire sont marqués [À compléter : …]') + '. Tu relis et corriges ensuite.</div>' +
       '<div class="tools"><button type="button" class="main" data-action="developAll">Développer toutes les parties remplies</button></div>' +
       '<div class="progress" id="dev-all" role="status"></div>' + blocks +
@@ -1111,34 +1109,34 @@
       });
     }
     else if (a === 'plansUse' && planAi.plans && planAi.plans[i]) {
-      if (!confirmReplace()) return;
+      if (!(await confirmReplace())) return;
       const pl = planAi.plans[i];
-      state.sections = pl.parties.map(function (x, k) {
+      state.sections = pl.parties.map(function (x) {
         const edge = x.level === 1 && (/^(introduction|conclusion)/i.test(x.titre));
         return sec(x.level, x.titre, 'Que veux-tu dire dans cette partie ?', edge);
       });
       state.tab = 'edit'; flushSave(); save(); render();
     }
     else if (a === 'useDefault') {
-      if (!confirmReplace()) return;
+      if (!(await confirmReplace())) return;
       state.sections = M().plan(); state.tab = 'edit'; flushSave(); save(); render();
     }
 else if (a === 'useCustom') {
       const parsed = parseCustom(state.customText || '');
       if (!parsed.length) { document.getElementById('err').textContent = 'Écris au moins une ligne pour ton plan.'; return; }
-      if (!confirmReplace()) return;
+      if (!(await confirmReplace())) return;
       state.sections = parsed; state.tab = 'edit'; flushSave(); save(); render();
     }
     else if (a === 'up' && i > 0) { const x = list[i]; list[i] = list[i - 1]; list[i - 1] = x; flushSave(); save(); render(); }
     else if (a === 'down' && i < list.length - 1) { const y = list[i]; list[i] = list[i + 1]; list[i + 1] = y; flushSave(); save(); render(); }
     else if (a === 'level') {
       const s = list[i];
-      if (s.level === 1) { if (i === 0) { alert('La première ligne doit rester une partie.'); return; } s.level = 2; s.nonum = false; }
+      if (s.level === 1) { if (i === 0) { showMessage('La première ligne doit rester une partie.', 'warn'); return; } s.level = 2; s.nonum = false; }
       else { s.level = 1; }
       flushSave(); save(); render();
     }
     else if (a === 'del') {
-      if (finalText(list[i]).trim() && !confirm('Cette partie contient du texte. La supprimer quand même ?')) return;
+      if (finalText(list[i]).trim() && !(await askConfirm('Cette partie contient du texte. La supprimer quand même ?'))) return;
       list.splice(i, 1); flushSave(); save(); render();
     }
     else if (a === 'addPart') {
@@ -1381,7 +1379,5 @@ else if (a === 'useCustom') {
       }
     });
   if (typeof window !== 'undefined') {
-    window.state = state;
-    window.docx = window.docx;
   }
 })();

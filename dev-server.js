@@ -100,7 +100,8 @@ async function handleApi(req, res, pathname) {
     req.body = await parseBody(req);
     const parsedUrl = url.parse(req.url, true);
     req.query = parsedUrl.query;
-    const send = (code, obj) => {
+    // eslint-disable-next-line no-unused-vars
+    const _send = (code, obj) => {
       res.statusCode = code;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.end(JSON.stringify(obj));
