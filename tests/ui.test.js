@@ -53,13 +53,13 @@ function type(w, sel, val) {
   el.value = val; el.dispatchEvent(new w.Event('input', { bubbles: true }));
 }
 
-test('le nom de l\'outil remplace le texte provisoire', { skip: !JSDOM }, () => {
+test('le nom de l\'outil remplace le texte provisoire', () => {
   const t = boot();
   assert.ok(!/NOM DE L/.test(t.w.document.body.innerHTML));
   assert.match(t.w.document.body.innerHTML, /Assistant rapport/);
 });
 
-test('scroll : en haut quand l\'écran change, position gardée sinon', { skip: !JSDOM }, () => {
+test('scroll : en haut quand l\'écran change, position gardée sinon', () => {
   const t = boot(), w = t.w;
   click(w, '[data-action="open"][data-mode="stage"]');            // accueil → étape 1
   assert.strictEqual(t.calls[t.calls.length - 1], 0);
@@ -89,7 +89,7 @@ test('scroll : en haut quand l\'écran change, position gardée sinon', { skip: 
   assert.strictEqual(t.calls[t.calls.length - 1], 0);
 });
 
-test('recherche web décochée par défaut', { skip: !JSDOM }, () => {
+test('recherche web décochée par défaut', () => {
   const t = boot(), w = t.w;
   click(w, '[data-action="open"][data-mode="expose"]');
   type(w, '#m-0', 'KINSY Sergio'); type(w, '#f-ecole', 'UCAO-UUC'); type(w, '#f-sujet', 'Énergie solaire');
@@ -98,7 +98,7 @@ test('recherche web décochée par défaut', { skip: !JSDOM }, () => {
   assert.ok(box); assert.strictEqual(box.checked, false);
 });
 
-test('isSafeUrl : rejette javascript: et data:, accepte http/https', { skip: !JSDOM }, () => {
+test('isSafeUrl : rejette javascript: et data:, accepte http/https', () => {
   const t = boot(), w = t.w;
   assert.strictEqual(w.AppUtils.isSafeUrl('https://example.com'), true);
   assert.strictEqual(w.AppUtils.isSafeUrl('http://example.com'), true);
@@ -109,7 +109,7 @@ test('isSafeUrl : rejette javascript: et data:, accepte http/https', { skip: !JS
   assert.strictEqual(w.AppUtils.isSafeUrl(null), false);
 });
 
-test('debouncedSave : délai de 400 ms sur les inputs', { skip: !JSDOM }, () => {
+test('debouncedSave : délai de 400 ms sur les inputs', () => {
   const t = boot(), w = t.w;
   click(w, '[data-action="open"][data-mode="stage"]');
   type(w, '#f-nom', 'Test');
@@ -117,7 +117,7 @@ test('debouncedSave : délai de 400 ms sur les inputs', { skip: !JSDOM }, () => 
   // Le timer est créé, on ne peut pas tester l'avancement du temps sans fake timers
 });
 
-test('fetchWithTimeout : avorte après 60 secondes', { skip: !JSDOM }, async () => {
+test('fetchWithTimeout : avorte après 60 secondes', async () => {
   const t = boot(), w = t.w;
   let abortCalled = false;
   const originalFetch = w.fetch;

@@ -8,6 +8,7 @@ const MAX_SEARCHES = 3;
 const MAX_SOURCES = 8;
 const LIMIT_PER_HOUR = 6;
 const { mockOn, aiOff, joinText, logUsage, mockSend } = require('./_ai');
+const { logError } = require('./_log');
 
 const hits = new Map();
 function limited(ip) {
@@ -118,7 +119,7 @@ module.exports = async function handler(req, res) {
       if (!r.ok) {
         let info = '';
         try { const j = await r.json(); info = (j && j.error && j.error.message) || ''; } catch (e) { /* ignoré */ }
-        console.error('sources: erreur API', r.status, String(info).slice(0, 300));
+        logError('sources', { event: 'erreur API', status: r.status });
         if (r.status === 400 && /web.?search/i.test(info)) {
           return send(res, 502, { status: 'error', message: "La recherche web n'est pas activée sur ton compte Anthropic (console : Settings, puis Capabilities)." });
         }
@@ -144,7 +145,7 @@ module.exports = async function handler(req, res) {
       break;
     }
   } catch (e) {
-    console.error('sources: connexion impossible', e && e.message);
+    logError('sources', { event: 'connexion impossible', erreur: e && e.message });
     return send(res, 502, { status: 'error', message: 'Impossible de joindre le service de recherche. Réessaie dans un moment.' });
   }
 

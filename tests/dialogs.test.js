@@ -29,7 +29,7 @@ function boot() {
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-test('showMessage crée un toast avec role=status', { skip: !JSDOM }, () => {
+test('showMessage crée un toast avec role=status', () => {
   const w = boot();
   const dlg = w.AppDialogs.showMessage('Test message', 'info');
   const toast = w.document.querySelector('.dlg-toast');
@@ -41,7 +41,7 @@ test('showMessage crée un toast avec role=status', { skip: !JSDOM }, () => {
   dlg.close();
 });
 
-test('showMessage avec type warn', { skip: !JSDOM }, () => {
+test('showMessage avec type warn', () => {
   const w = boot();
   const dlg = w.AppDialogs.showMessage('Warning!', 'warn');
   const toast = w.document.querySelector('.dlg-toast');
@@ -49,7 +49,7 @@ test('showMessage avec type warn', { skip: !JSDOM }, () => {
   dlg.close();
 });
 
-test('showMessage avec type error', { skip: !JSDOM }, () => {
+test('showMessage avec type error', () => {
   const w = boot();
   const dlg = w.AppDialogs.showMessage('Error!', 'error');
   const toast = w.document.querySelector('.dlg-toast');
@@ -58,7 +58,7 @@ test('showMessage avec type error', { skip: !JSDOM }, () => {
 });
 
 // Tests asynchrones pour askConfirm - simplifiés car transitionend ne marche pas dans JSDOM
-test('askConfirm crée une boîte modale avec les bons attributs', { skip: !JSDOM }, async () => {
+test('askConfirm crée une boîte modale avec les bons attributs', async () => {
   const w = boot();
   // Appeler askConfirm mais ne pas attendre la promesse
   // eslint-disable-next-line no-unused-vars
@@ -77,7 +77,7 @@ test('askConfirm crée une boîte modale avec les bons attributs', { skip: !JSDO
   if (overlay) overlay.remove();
 });
 
-test('askConfirm a les bons boutons', { skip: !JSDOM }, async () => {
+test('askConfirm a les bons boutons', async () => {
   const w = boot();
   // eslint-disable-next-line no-unused-vars
   const _promise = w.AppDialogs.askConfirm('Confirmer ?', { oui: 'Oui', non: 'Non' });
@@ -95,7 +95,7 @@ test('askConfirm a les bons boutons', { skip: !JSDOM }, async () => {
   if (overlay) overlay.remove();
 });
 
-test('focus initial sur bouton Oui', { skip: !JSDOM }, async () => {
+test('focus initial sur bouton Oui', async () => {
   const w = boot();
   // eslint-disable-next-line no-unused-vars
   const _promise = w.AppDialogs.askConfirm('Confirmer ?');
@@ -110,7 +110,7 @@ test('focus initial sur bouton Oui', { skip: !JSDOM }, async () => {
   if (overlay) overlay.remove();
 });
 
-test('Échap annule la boîte', { skip: !JSDOM }, async () => {
+test('Échap annule la boîte', async () => {
   const w = boot();
   // eslint-disable-next-line no-unused-vars
   const _promise = w.AppDialogs.askConfirm('Confirmer ?');

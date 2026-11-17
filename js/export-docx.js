@@ -9,7 +9,6 @@
 })(this, function (CoverData, AppUtils) {
   'use strict';
 
-  const { officialCover, cat, members, NONUM } = CoverData;
   const { labels } = AppUtils;
 
   function readableColor(hex) {
@@ -47,6 +46,75 @@
     return lum > 186 ? '000000' : 'FFFFFF';
   }
 
+
+  /* ---- PNG sans dépendance (navigateur et Node) : le ruban à encoches est dessiné pixel par pixel, sans canvas ---- */
+  const CRC_TABLE = (function () {
+    const t = [];
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function u32(n) { return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]; }
+  function pngChunk(type, data) {
+    const body = new Uint8Array(4 + data.length);
+    for (let i = 0; i < 4; i++) body[i] = type.charCodeAt(i);
+    body.set(data, 4);
+    return [].concat(u32(data.length), Array.from(body), u32(crc32(body)));
+  }
+  function zlibStored(raw) {
+    const out = [0x78, 0x01];
+    for (let i = 0; i < raw.length; i += 65535) {
+      const len = Math.min(65535, raw.length - i);
+      out.push(i + 65535 >= raw.length ? 1 : 0, len & 255, (len >>> 8) & 255, (~len) & 255, ((~len) >>> 8) & 255);
+      for (let j = 0; j < len; j++) out.push(raw[i + j]);
+    }
+    let a = 1, b = 0;
+    for (let i = 0; i < raw.length; i++) { a = (a + raw[i]) % 65521; b = (b + a) % 65521; }
+    return Uint8Array.from(out.concat(u32(((b << 16) | a) >>> 0)));
+  }
+  function hexRgb(hex) { const h = String(hex).replace('#', ''); return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)]; }
+
+  /* Ruban d'origine : un morceau central (couleur d'accent, un peu plus bas que les côtés) et deux bouts en teinte claire,
+     chacun avec une encoche en V sur son bord extérieur (mêmes proportions que l'aperçu : 12 % / 76 % / 12 %, encoche de 28 %).
+     Palette : 0 = transparent, 1 à 4 = teinte claire (bords lissés), 5 = couleur d'accent. */
+  function ribbonPng(accentHex, lightHex) {
+    const W = 900, H = 124, PW = Math.round(W * 0.12), TOP = Math.round(H * 0.1), BOT = Math.round(H * 0.9);
+    const SS = 4;
+    const inNotch = function (dist, y) { return dist < 0.28 * PW * (1 - Math.abs(2 * y / H - 1)); };
+    const raw = new Uint8Array(H * (W + 1));
+    for (let y = 0; y < H; y++) {
+      raw[y * (W + 1)] = 0;
+      for (let x = 0; x < W; x++) {
+        let idx = 0;
+        if (x >= PW && x < W - PW) { idx = (y >= TOP && y < BOT) ? 5 : 0; }
+        else {
+          const left = x < PW, local = left ? x : x - (W - PW);
+          let covered = 0;
+          for (let sy = 0; sy < SS; sy++) {
+            for (let sx = 0; sx < SS; sx++) {
+              const px = local + (sx + 0.5) / SS, py = y + (sy + 0.5) / SS;
+              const dist = left ? px : PW - px;
+              if (!inNotch(dist, py)) covered++;
+            }
+          }
+          idx = covered === 0 ? 0 : Math.min(4, Math.max(1, Math.round(covered / (SS * SS) * 4)));
+        }
+        raw[y * (W + 1) + 1 + x] = idx;
+      }
+    }
+    const light = hexRgb(lightHex), accent = hexRgb(accentHex);
+    const plte = Uint8Array.from([0, 0, 0].concat(light, light, light, light, accent));
+    const trns = Uint8Array.from([0, 64, 128, 192, 255, 255]);
+    const ihdr = Uint8Array.from([].concat(u32(W), u32(H), [8, 3, 0, 0, 0]));
+    return Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10].concat(pngChunk('IHDR', ihdr), pngChunk('PLTE', plte), pngChunk('tRNS', trns), pngChunk('IDAT', zlibStored(raw)), pngChunk('IEND', new Uint8Array(0))));
+  }
+
+  /* Couleur du texte d'un bandeau : celle du modèle si elle est définie, sinon noir ou blanc selon le fond. */
+  function bannerTextColor(cover, fill) {
+    const t = String((cover && cover.bannerText) || '').replace('#', '');
+    return /^[0-9A-Fa-f]{6}$/.test(t) ? t.toUpperCase() : textColorForBg(fill);
+  }
+
   function fromB64(b) {
     try {
       if (typeof atob === 'function') {
@@ -82,7 +150,7 @@
         children: [run(x, x.star ? 20 : (x.big ? 26 : size), color)]
       });
     }
-    function cell(pct, kids, align) {
+    function cell(pct, kids) {
       return new d.TableCell({ borders: noBorders, width: { size: pct, type: d.WidthType.DXA }, verticalAlign: d.VerticalAlign.CENTER, children: kids });
     }
     function logoPara(l, align) {
@@ -110,8 +178,8 @@
 
     const bst = cover.banner;
     out.push(new d.Paragraph({ spacing: { before: 500, after: 0 }, children: [] }));
-    const txtColor = (bst === 'ruban' || bst === 'bandeau') ? (cover.bannerText ? cover.bannerText.replace('#', '') : 'FFFFFF') : (bst === 'lignes' ? col : '000000');
-    const FULL = 9026, TAIL = 1400;
+    const txtColor = (bst === 'ruban' || bst === 'bandeau') ? bannerTextColor(cover, col) : (bst === 'lignes' ? col : '000000');
+    const FULL = 9026;
     function boxTable(kids, border) {
       const bd = border ? { style: border.style, size: border.size, color: col } : noneBorder;
       const cellBorders = { top: bd, bottom: bd, left: bd, right: bd };
@@ -146,62 +214,54 @@
     } else if (bst === 'bandeau') {
       out.push(boxTable(o.banner.map(function (x) { return para(x, 26, d.AlignmentType.CENTER, 60, txtColor); }), null));
     } else {
-      // Ruban style: 3-cell table (left 12%, center 76%, right 12%)
-      const lightCol = lightenColor(col, 0.25);
-      const bannerTextColor = textColorForBg(col);
-      const sideTextColor = textColorForBg(lightenColor(col, 0.25));
-      const sideCell = function (align) {
-        return new d.TableCell({
-          borders: noBorders,
-          width: { size: TAIL, type: d.WidthType.DXA },
-          shading: { type: d.ShadingType.CLEAR, fill: lightCol, color: 'auto' },
-          verticalAlign: d.VerticalAlign.CENTER,
-          margins: { top: 200, bottom: 200, left: 200, right: 200 },
-          children: [new d.Paragraph({
-            alignment: align,
-            spacing: { before: 60, after: 60 },
-            children: []
-          })]
-        });
-      };
-      const midCell = new d.TableCell({
-        borders: noBorders,
-        width: { size: FULL - 2 * TAIL, type: d.WidthType.DXA },
-        shading: { type: d.ShadingType.CLEAR, fill: col, color: 'auto' },
-        verticalAlign: d.VerticalAlign.CENTER,
-        margins: { top: 200, bottom: 200, left: 200, right: 200 },
-        children: [new d.Paragraph({
-          alignment: d.AlignmentType.CENTER,
-          spacing: { before: 60, after: 60 },
-          children: o.banner.map(function (x) { return new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: bannerTextColor }); }).reduce(function (acc, run) { if (acc.length === 0) return [run]; var last = acc[acc.length - 1]; return acc.concat(' ' + run.text ? [run] : []); }, [])
+      // Ruban d'origine (bouts en encoche) : une image dessinée placée DERRIÈRE le texte, ancrée à un petit paragraphe,
+      // puis une ligne de texte centrée par ligne de bannière. Aucun tableau : rien à afficher comme bordure.
+      const BAND_H = 62, LINE = 20;
+      const nLines = Math.max(1, o.banner.length);
+      const pad = Math.max(2, (BAND_H - nLines * LINE) / 2);
+      const bannerTxt = bannerTextColor(cover, col);
+      out.push(new d.Paragraph({
+        spacing: { before: 0, after: 0, line: 20, lineRule: 'exact' },
+        children: [new d.ImageRun({
+          type: 'png', data: ribbonPng(col, lightenColor(col, 0.15)), transformation: { width: 601, height: 83 },
+          altText: { title: 'Ruban', description: 'Ruban décoratif du thème', name: 'ruban' },
+          floating: {
+            horizontalPosition: { relative: d.HorizontalPositionRelativeFrom.COLUMN, offset: 0 },
+            verticalPosition: { relative: d.VerticalPositionRelativeFrom.PARAGRAPH, offset: 0 },
+            behindDocument: true, allowOverlap: true, wrap: { type: d.TextWrappingType.NONE }
+          }
         })]
-      });
-      out.push(new d.Table({
-        width: { size: FULL, type: d.WidthType.DXA }, columnWidths: [TAIL, FULL - 2 * TAIL, TAIL], borders: tblNoBorders,
-        rows: [new d.TableRow({ children: [sideCell(d.AlignmentType.LEFT), midCell, sideCell(d.AlignmentType.RIGHT)] })]
       }));
+      o.banner.forEach(function (x, k) {
+        out.push(new d.Paragraph({
+          alignment: d.AlignmentType.CENTER,
+          spacing: { before: k === 0 ? Math.round((pad - 1) * 20) : 0, after: k === nLines - 1 ? Math.round(pad * 20) : 0, line: LINE * 20, lineRule: 'exact' },
+          children: [new d.TextRun({ text: x.t, font: FONT, size: 26, bold: true, color: bannerTxt })]
+        }));
+      });
     }
     o.after.forEach(function (x, k) { out.push(para(x, 22, d.AlignmentType.CENTER, 50)); out.splice(out.length - 1, 1, new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { before: k ? 0 : 300, after: 50 }, children: [run(x, 22)] })); });
     out.push(new d.Paragraph({ spacing: { before: 700, after: 0 }, children: [] }));
 
-    const L = [new d.Paragraph({ spacing: { after: 120 }, children: [new d.TextRun({ text: o.left.title, font: FONT, size: 22, bold: true, underline: {}, color: o.left.color ? o.left.color.replace('#', '') : undefined })] })];
-    o.left.names.forEach(function (n, k) {
-      L.push(new d.Paragraph({ spacing: { after: 80 }, indent: o.left.numbered ? { left: 300 } : undefined,
-        children: [new d.TextRun({ text: (o.left.numbered ? (k + 1) + '.  ' : '') + n, font: FONT, size: 21, bold: true })] }));
-    });
-    const R = [];
-    if (o.right) {
-      R.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { after: 120 }, children: [new d.TextRun({ text: o.right.title, font: FONT, size: 22, bold: true, underline: {}, color: o.right.color ? o.right.color.replace('#', '') : undefined })] }));
-      R.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { after: 80 }, children: [new d.TextRun({ text: o.right.name, font: FONT, size: 21, bold: true })] }));
+    // Bloc « Présenté par / Supervision » sans tableau : deux colonnes par tabulation (aucune bordure possible).
+    const colorOf = function (c) { return c ? c.replace('#', '') : undefined; };
+    const leftLines = [{ t: o.left.title, head: true, color: o.left.color }].concat(o.left.names.map(function (n, k) { return { t: (o.left.numbered ? (k + 1) + '.  ' : '') + n, num: o.left.numbered }; }));
+    const rightLines = o.right ? [{ t: o.right.title, head: true, color: o.right.color }, { t: o.right.name }] : [];
+    const nRows = Math.max(leftLines.length, rightLines.length);
+    for (let r = 0; r < nRows; r++) {
+      const lf = leftLines[r], rt = rightLines[r], kids = [];
+      if (lf) kids.push(new d.TextRun({ text: lf.t, font: FONT, size: lf.head ? 22 : 21, bold: true, underline: lf.head ? {} : undefined, color: colorOf(lf.color) }));
+      if (rt) {
+        kids.push(new d.TextRun({ children: [new d.Tab()], font: FONT, size: 21 }));
+        kids.push(new d.TextRun({ text: rt.t, font: FONT, size: rt.head ? 22 : 21, bold: true, underline: rt.head ? {} : undefined, color: colorOf(rt.color) }));
+      }
+      out.push(new d.Paragraph({
+        tabStops: [{ type: d.TabStopType.CENTER, position: 6995 }],
+        spacing: { after: lf && lf.head ? 120 : 80 },
+        indent: lf && lf.num ? { left: 300 } : undefined,
+        children: kids.length ? kids : []
+      }));
     }
-    if (!R.length) R.push(new d.Paragraph({ children: [] }));
-    out.push(new d.Table({
-      width: { size: 9026, type: d.WidthType.DXA }, columnWidths: [4964, 4062], borders: tblNoBorders,
-      rows: [new d.TableRow({ children: [
-        new d.TableCell({ borders: tblNoBorders, width: { size: 4964, type: d.WidthType.DXA }, children: L }),
-        new d.TableCell({ borders: tblNoBorders, width: { size: 4062, type: d.WidthType.DXA }, children: R })
-      ] })]
-    }));
 
     if (o.yearSegs) {
       out.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, spacing: { before: 900, after: 0 }, children: segRuns(o.yearSegs, 22) }));
@@ -214,12 +274,13 @@
 
   function buildDocument(docxLib, project, assets) {
     const d = docxLib;
-    const state = project;
+    const state = Object.assign({}, project, { profile: CoverData.normalizeProfile(project.profile) });
     const FONT = 'Times New Roman';
 
     const model = state.cover.model;
     const col = state.cover.color.replace('#', '');
     const headColor = model === 'sobre' ? '000000' : readableColor(col);
+    const tocMode = state.tocMode === 'auto' ? 'auto' : 'simple';
 
     function centered(text, size, bold, before, after, color) {
       return new d.Paragraph({
@@ -269,7 +330,7 @@
             borders: noBorders,
             shading: { type: d.ShadingType.CLEAR, fill: col, color: 'auto' },
             margins: { top: 300, bottom: 300, left: 200, right: 200 },
-            children: [centered(mi.coverTitle, 56, true, 0, 0, 'FFFFFF')]
+            children: [centered(mi.coverTitle, 56, true, 0, 0, bannerTextColor(state.cover, col))]
           })] })]
         }));
         cover.push(new d.Paragraph({ spacing: { before: 0, after: 360 }, children: [] }));
@@ -294,28 +355,20 @@
     let figNo = 0;
     main.push(centered('SOMMAIRE', 30, true, 0, 240, headColor));
 
-    const tocMode = state.tocMode === 'auto' ? 'auto' : 'simple';
     if (tocMode === 'auto') {
       main.push(new d.TableOfContents('Sommaire', { hyperlink: true, headingStyleRange: '1-2' }));
     } else {
-      // Simple TOC: manual paragraphs with bookmarks and internal hyperlinks
-      const tocBookmarks = [];
+      // Sommaire simple : un lien interne par titre (signets posés sur les titres), sans numéro de page inventé.
       state.sections.forEach(function (s, i) {
         const title = (lb[i] ? lb[i] + '  ' : '') + (s.level === 1 ? s.title.toUpperCase() : s.title);
-        const bookmarkName = 'toc_' + s.id;
-        tocBookmarks.push({ id: s.id, title: title, level: s.level, bookmarkName: bookmarkName });
         main.push(new d.Paragraph({
           alignment: d.AlignmentType.LEFT,
-          spacing: { before: 60, after: 60, line: 360 },
+          spacing: { before: 60, after: 60 },
           indent: s.level === 2 ? { left: 720 } : undefined,
-          tabStops: [{ type: d.TabStopType.RIGHT, position: 8500, leader: d.LeaderType.DOT }],
-          children: [
-            new d.BookmarkStart({ name: bookmarkName, id: i }),
-            new d.TextRun({ text: title, font: FONT, size: s.level === 1 ? 24 : 22, bold: s.level === 1, color: '000000' }),
-            new d.BookmarkEnd({ id: i }),
-            new d.TextRun({ children: [new d.Tab()], font: FONT, size: s.level === 1 ? 24 : 22 }),
-            new d.TextRun({ text: '', font: FONT, size: s.level === 1 ? 24 : 22 }) // page number placeholder
-          ]
+          children: [new d.InternalHyperlink({
+            anchor: 'sec_' + i,
+            children: [new d.TextRun({ text: title, font: FONT, size: s.level === 1 ? 24 : 22, bold: s.level === 1, color: '000000' })]
+          })]
         }));
       });
     }
@@ -333,13 +386,8 @@
             figNo += 1;
             main.push(new d.Paragraph({
               alignment: d.AlignmentType.LEFT,
-              spacing: { before: 60, after: 60, line: 360 },
-              tabStops: [{ type: d.TabStopType.RIGHT, position: 8500, leader: d.LeaderType.DOT }],
-              children: [
-                new d.TextRun({ text: 'Figure ' + figNo + (f.cap ? ' : ' + f.cap : ''), font: FONT, size: 22, color: '000000' }),
-                new d.TextRun({ children: [new d.Tab()], font: FONT, size: 22 }),
-                new d.TextRun({ text: '', font: FONT, size: 22 })
-              ]
+              spacing: { before: 60, after: 60 },
+              children: [new d.TextRun({ text: 'Figure ' + figNo + (f.cap ? ' : ' + f.cap : ''), font: FONT, size: 22, color: '000000' })]
             }));
           });
         });
@@ -356,7 +404,7 @@
         pageBreakBefore: needsPageBreak,
         keepNext: true,
         spacing: { before: i === 0 ? 0 : (s.level === 1 ? 480 : 300), after: 160 },
-        children: [new d.TextRun({ text: title, font: FONT })]
+        children: [new d.Bookmark({ id: 'sec_' + i, children: [new d.TextRun({ text: title, font: FONT })] })]
       }));
       let lines = String(finalText(s)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
       if (!lines.length) lines = ['[À compléter]'];
@@ -420,7 +468,7 @@
     return new d.Document({
       creator: 'Assistant rapport de stage et exposé',
       title: project.modeInfo.docTitle,
-      features: { updateFields: true },
+      features: { updateFields: tocMode === 'auto' },
       styles: {
         default: { document: { run: { font: FONT, size: 24 } } },
         paragraphStyles: [
@@ -448,5 +496,5 @@
     return (s.text && s.text.trim()) ? s.text : (s.notes || '');
   }
 
-  return { buildDocument, readableColor, lightenColor, textColorForBg, buildOfficialCover, fromB64, figCount, finalText };
+  return { buildDocument, ribbonPng, readableColor, lightenColor, textColorForBg, bannerTextColor, buildOfficialCover, fromB64, figCount, finalText };
 });

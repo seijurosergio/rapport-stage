@@ -4,8 +4,8 @@
   const { esc, words, labels, slug, parseCustom, fmtCite, todayFr, isSafeUrl, fetchWithTimeout, makeDebouncedSave, sec } = window.AppUtils;
   const { loadState, saveState, loadLogos, saveLogos, loadFigsData, saveFigsData, loadPending, savePending, clearPendingData, toB64 } = window.AppStorage;
   const { showMessage, askConfirm } = window.AppDialogs;
-  const { officialCover, cat: coverCatFn, members: coverMembers } = window.AppCoverData;
-  const { lightenColor, textColorForBg } = window.AppExport;
+  const { officialCover, cat: coverCatFn, members: coverMembers, normalizeProfile } = window.AppCoverData;
+  const { lightenColor, bannerTextColor } = window.AppExport;
 
   /* Nom affiché en haut des écrans : à remplacer par le vrai nom de l'outil. */
   const APP_NAME = 'Assistant rapport';
@@ -82,7 +82,7 @@
       coverTitle: 'RAPPORT DE STAGE',
       docTitle: 'Rapport de stage',
       presentedBefore: 2600,
-      coverPrev: function (P) { return P.entreprise ? 'Stage à ' + P.entreprise : ''; },
+      coverPrev: function (P) { return P.entreprise ? 'Stage effectué à : ' + P.entreprise : ''; },
       coverLines: function (P) {
         const o = [];
         if (P.entreprise) o.push(['Stage effectué à : ' + P.entreprise, 28, false, 240, 120]);
@@ -632,6 +632,10 @@
     const o = officialCover(state.profile, c, state.mode), col = c.color;
     function segsHtml(a) { return a.map(function (g) { return '<span style="' + (g.color ? 'color:' + g.color + ';' : '') + (g.ul ? 'text-decoration:underline;' : '') + (g.b ? 'font-weight:700;' : '') + (g.i ? 'font-style:italic;' : '') + '">' + esc(g.t) + '</span>'; }).join(''); }
     function ln(x) {
+      if (x.star) return '<div class="o-st">*******</div>';
+      if (x.row) return '<div class="o-row"><span>' + segsHtml(x.row[0]) + '</span><span>' + segsHtml(x.row[1]) + '</span></div>';
+      if (x.segs) return '<div class="o-l' + (x.left ? ' o-left' : '') + '">' + segsHtml(x.segs) + '</div>';
+      if (x.color) return '<div class="o-l' + (x.bold ? ' b' : '') + '" style="color:' + x.color + '">' + esc(x.t) + '</div>';
       return '<div class="o-l' + (x.bold ? ' b' : '') + (x.ul ? ' u' : '') + '">' + esc(x.t) + '</div>';
     }
     const lg = '<div class="o-lg">' + (logos.ecole ? '<img alt="" src="' + logoDataUrl(logos.ecole) + '">' : '<span></span>') +
@@ -639,19 +643,19 @@
       (logos.entreprise ? '<img alt="" src="' + logoDataUrl(logos.entreprise) + '">' : '<span></span>') + '</div>';
     const btxt = o.banner.map(function (x) { return '<div class="o-l' + (x.bold ? ' b' : '') + '">' + esc(x.t) + '</div>'; }).join('');
     const bst = c.banner;
-    const lightCol = bst === 'ruban' ? lightenColor(col, 0.25) : col;
-    const bannerTextColor = bst === 'ruban' ? textColorForBg(col) : (c.bannerText || '#fff');
-    const rib = bst === 'ruban' ? '<div class="o-rib"><div></div><div>' + btxt + '</div><div></div></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';
+    const lightCol = '#' + lightenColor(col, 0.15);
+    const txtCol = '#' + bannerTextColor(c, col);
+    const rib = bst === 'ruban' ? '<div class="o-rib"><i></i><div>' + btxt + '</div><i></i></div>' : '<div class="o-bn o-' + bst + '">' + btxt + '</div>';
     const names = o.left.names.length ? o.left.names.map(function (n, k) { return '<div class="o-l b">' + (o.left.numbered ? (k + 1) + '. ' : '') + esc(n) + '</div>'; }).join('') : '<div class="o-l">Ton nom</div>';
     const bt = '<div class="o-bt"><div><div class="o-l b u"' + (o.left.color ? ' style="color:' + o.left.color + '"' : '') + '>' + esc(o.left.title) + '</div>' + names + '</div>' +
       '<div>' + (o.right ? '<div class="o-l b u"' + (o.right.color ? ' style="color:' + o.right.color + '"' : '') + '>' + esc(o.right.title) + '</div><div class="o-l b">' + esc(o.right.name) + '</div>' : '') + '</div></div>';
-    return '<div class="cpo" style="--cc:' + col + ';--cc-light:' + lightCol + ';--ct:' + bannerTextColor + ';' + (c.art ? 'border:7px dotted ' + (c.artColor || col) : '') + '">' + lg + o.rest.map(ln).join('') + o.lines.map(ln).join('') + rib + o.after.map(ln).join('') + bt +
+    return '<div class="cpo" style="--cc:' + col + ';--cc-light:' + lightCol + ';--ct:' + txtCol + ';' + (c.art ? 'border:7px dotted ' + (c.artColor || col) : '') + '">' + lg + o.rest.map(ln).join('') + o.lines.map(ln).join('') + rib + o.after.map(ln).join('') + bt +
       (o.yearSegs ? '<div class="o-yr" style="text-decoration:none">' + segsHtml(o.yearSegs) + '</div>' : o.year ? '<div class="o-yr">' + esc(o.year) + '</div>' : '') + '</div>';
   }
 
   function coverPreview(c) {
     c = c || state.cover;
-    const P = state.profile, col = c.color;
+    const P = normalizeProfile(state.profile), col = c.color;
     if (c.model === 'aucune') {
       return '<div class="cpn">Pas de page de garde : le fichier commence par le sommaire. Tu ajoutes ensuite la page de ton école dans Word.</div>';
     }
@@ -662,7 +666,7 @@
       : '<div class="cp-t" style="color:' + (c.model === 'sobre' ? '#16211E' : col) + '">' + M().coverTitle + '</div>';
     return '<div class="cp" style="' + frame + '"><div class="cp-s">' + esc(P.ecole ? P.ecole.toUpperCase() : 'ÉCOLE') + '</div>' + title +
       '<div class="cp-m">' + esc(M().coverPrev(P)) + '</div>' +
-      '<div class="cp-m"><b>' + esc(state.mode === 'expose' ? (coverMembers(state.profile).join(', ') || 'Ton nom') : (P.nom || 'Ton nom')) + '</b></div></div>';
+      '<div class="cp-m"><b>' + esc(state.mode === 'expose' ? (coverMembers(P).join(', ') || 'Ton nom') : (P.nom || 'Ton nom')) + '</b></div></div>';
   }
 
   function logoStatusHtml(key) {
@@ -735,16 +739,15 @@
       '<div><h1>' + esc(M().writeH1) + '</h1><p class="lead">' + esc(M().writeLead) + '</p></div>' +
       notes +
       '<label class="opt"><input type="checkbox" data-research="1"' + (state.research ? ' checked' : '') + '><span><b>Appuyer la rédaction sur des sources fiables du web</b> : ' + (state.mode === 'expose' ? "le site cherche des pages sur chaque partie, rédige à partir de ce qu'il trouve" : "le site cherche le contexte (secteur, notions techniques, informations publiques) et rédige avec tes notes ; ce que tu as fait toi-même ne vient que de toi, et ce qui manque est marqué [À compléter]") + ', et ajoute les pages utilisées à la liste des sources en dernière page. Un peu plus long (20 à 40 s par partie).</span></label>' +
-      '<div class="opt"><label><b>Sommaire :</b> <select data-tocmode><option value="simple"' + (state.tocMode === 'simple' ? ' selected' : '') + '>Simple (s\'affiche partout, sans numéros de page)</option><option value="auto"' + (state.tocMode === 'auto' ? ' selected' : '') + '>Automatique avec numéros de page (Word : réponds Oui à la mise à jour)</option></select></label></div>' +
+      '<div class="opt"><label><b>Sommaire :</b> <select data-tocmode="1"><option value="simple"' + (state.tocMode === 'simple' ? ' selected' : '') + '>Simple (s\'affiche partout, sans numéros de page)</option><option value="auto"' + (state.tocMode === 'auto' ? ' selected' : '') + '>Automatique avec numéros de page (Word : réponds Oui à la mise à jour)</option></select></label></div>' +
       '<p class="hint" id="toc-hint"' + (state.tocMode === 'auto' ? '' : ' style="display:none"') + '>Dans Word, réponds « Oui » à la question sur la mise à jour des champs pour remplir le sommaire.</p>' +
-      '<div class="opt"><label><input type="checkbox" data-partpagebreak' + (state.partPageBreak ? ' checked' : '') + '><b>Saut de page :</b> <span>Chaque grande partie (niveau 1) commence sur une nouvelle page</span></label></div>' +
+      '<div class="opt"><label><input type="checkbox" data-partpagebreak="1"' + (state.partPageBreak ? ' checked' : '') + '><b>Saut de page :</b> <span>Chaque grande partie (niveau 1) commence sur une nouvelle page</span></label></div>' +
 
       '<div class="tools"><button type="button" class="main" data-action="autoAll">Générer tout ' + (state.mode === 'expose' ? "l'exposé" : 'le rapport') + ' automatiquement</button></div><div class="hint">Un clic : le site rédige toutes les parties vides sans te poser de questions' + (state.mode === 'expose' ? ' (avec recherche de sources si la case est cochée)' : ' à partir de ton sujet, de tes missions et de la recherche ; les passages que seul toi peux écrire sont marqués [À compléter : …]') + '. Tu relis et corriges ensuite.</div>' +
       '<div class="tools"><button type="button" class="main" data-action="developAll">Développer toutes les parties remplies</button></div>' +
       '<div class="progress" id="dev-all" role="status"></div>' + blocks +
       sourcesPanel() + coverPanel() + payPanel() +
       '<div class="saved" id="saved">Sauvegardé sur cet appareil</div>' +
-      '<p class="hint">À l\'ouverture du fichier dans Word, réponds « Oui » à la question sur la mise à jour : le sommaire se remplit alors. S\'il reste vide, fais un clic droit sur le sommaire, puis « Mettre à jour les champs ».</p>' +
       '<div class="actions">' + (canDownload() ? '<button class="btn" type="button" data-action="download">Télécharger le fichier Word</button>' : '') +
       '<button class="btn ghost" type="button" data-action="to2">← Retour au plan</button>' +
       '<button class="btn ghost" type="button" data-action="to1">← Modifier mes informations</button>' +
@@ -941,7 +944,7 @@
         coverTitle: m.coverTitle,
         presentedBefore: m.presentedBefore,
         logoEntreprise: m.logoEntreprise,
-        coverLines: m.coverLines(state.profile),
+        coverLines: m.coverLines(normalizeProfile(state.profile)),
         fileBase: m.fileBase(state.profile)
       };
       const project = {
@@ -951,6 +954,8 @@
         cover: state.cover,
         sources: state.sources,
         citeStyle: state.citeStyle,
+        tocMode: state.tocMode,
+        partPageBreak: state.partPageBreak,
         modeInfo: modeInfo
       };
       const assets = {
@@ -971,7 +976,7 @@
         showMessage("Le fichier n'a pas pu être créé. Réessaie, ou recharge la page.", 'error');
       }
     } catch (e) {
-      console.error('Erreur export Word:', e);
+      console.error('Erreur export Word:', e && e.message);
       showMessage("Le fichier Word n'a pas pu être créé.", 'error');
     }
   }

@@ -79,14 +79,14 @@ function boot() {
   return w;
 }
 
-test('LeaderType.DOT existe dans docx (pas TabStopLeader)', { skip: !JSDOM }, () => {
+test('LeaderType.DOT existe dans docx (pas TabStopLeader)', () => {
   const w = boot();
   assert.ok(typeof w.docx !== 'undefined', 'docx doit être exposé');
   assert.ok(typeof w.docx.LeaderType !== 'undefined', 'LeaderType doit être exposé par docx');
   assert.strictEqual(w.docx.LeaderType.DOT, 'dot', 'LeaderType.DOT doit valoir "dot"');
 });
 
-test('AppExport.buildDocument génère un document valide', { skip: !JSDOM }, () => {
+test('AppExport.buildDocument génère un document valide', () => {
   const w = boot();
   const project = makeProject();
   const assets = { logos: { ecole: null, entreprise: null }, figs: {} };
@@ -94,7 +94,7 @@ test('AppExport.buildDocument génère un document valide', { skip: !JSDOM }, ()
   assert.ok(doc, 'Document créé');
 });
 
-test('Sommaire statique généré (pas TableOfContents dynamique)', { skip: !JSDOM }, () => {
+test('Sommaire statique généré (pas TableOfContents dynamique)', () => {
   const w = boot();
   const project = makeProject();
   project.sections = [
@@ -109,7 +109,7 @@ test('Sommaire statique généré (pas TableOfContents dynamique)', { skip: !JSD
   assert.ok(doc, 'Document créé avec sommaire');
 });
 
-test('Tableau signature sans bordures (borders NONE)', { skip: !JSDOM }, () => {
+test('Tableau signature sans bordures (borders NONE)', () => {
   const w = boot();
   const project = makeProject();
   project.profile.enseignant = 'Prof';
@@ -122,7 +122,7 @@ test('Tableau signature sans bordures (borders NONE)', { skip: !JSDOM }, () => {
   assert.ok(doc, 'Document créé avec tableau signature sans bordures');
 });
 
-test('Tableau ruban sans bordures (boxTable)', { skip: !JSDOM }, () => {
+test('Tableau ruban sans bordures (boxTable)', () => {
   const w = boot();
   const project = makeProject();
   project.cover = { model: 'officiel', color: '#0F6B5B', header: '', banner: 'bandeau', etiquettes: false };
@@ -131,7 +131,7 @@ test('Tableau ruban sans bordures (boxTable)', { skip: !JSDOM }, () => {
   assert.ok(doc, 'Document créé avec bandeau sans bordures');
 });
 
-test('Intégration : AppExport disponible via window', { skip: !JSDOM }, () => {
+test('Intégration : AppExport disponible via window', () => {
   const w = boot();
   assert.ok(typeof w.AppExport !== 'undefined', 'AppExport doit être exposé sur window');
   assert.ok(typeof w.AppExport.buildDocument === 'function', 'buildDocument doit être une fonction');

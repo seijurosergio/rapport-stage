@@ -7,7 +7,6 @@
 })(this, function () {
   'use strict';
 
-  const KEY = 'rapport-stage-v1';
   let counter = 0;
   function nid() { counter += 1; return 's' + Date.now().toString(36) + counter; }
   function sec(level, title, guide, nonum) {

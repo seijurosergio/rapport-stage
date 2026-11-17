@@ -9,6 +9,7 @@ const LIMIT_RESEARCH_PER_HOUR = 24;
 const MAX_SEARCHES = 2;
 const MAX_ROUNDS = 4; /* tours maximum quand la recherche web demande de reprendre la main */
 const { mockOn, aiOff, joinText, logUsage, mockSend } = require('./_ai');
+const { logError } = require('./_log');
 
 const hits = new Map();
 function limited(ip, key, max) {
@@ -218,7 +219,7 @@ module.exports = async function handler(req, res) {
       if (!r.ok) {
         let info = '';
         try { const j = await r.json(); info = (j && j.error && j.error.message) || ''; } catch (e) { /* ignoré */ }
-        console.error('develop: erreur API', r.status, String(info).slice(0, 300));
+        logError('develop', { event: 'erreur API', status: r.status });
         if (research && r.status === 400 && /web.?search/i.test(info)) {
           return send(res, 502, { status: 'error', message: "La recherche web n'est pas activée sur ton compte Anthropic (console : Settings, puis Capabilities)." });
         }
@@ -238,14 +239,14 @@ module.exports = async function handler(req, res) {
       break;
     }
   } catch (e) {
-    console.error('develop: connexion impossible', e && e.message);
+    logError('develop', { event: 'connexion impossible', erreur: e && e.message });
     return send(res, 502, { status: 'error', message: "Impossible de joindre le service de rédaction. Réessaie dans un moment." });
   }
 
   /* Avec la recherche web, le texte arrive en plusieurs morceaux : on les recolle sans rien ajouter. */
   const raw = reply ? joinText(reply.content) : '';
   if (reply && reply.stop_reason === 'max_tokens') {
-    console.error('develop: reponse coupee (max_tokens)');
+    logError('develop', { event: 'reponse coupee', stop: 'max_tokens' });
     return send(res, 502, { status: 'error', message: 'Le texte a été coupé avant la fin. Réessaie.' });
   }
   const parsed = parseModelJson(raw);
@@ -276,14 +277,14 @@ module.exports = async function handler(req, res) {
     if (!/^[\s`]*\{|"texte"\s*:|"sources_utilisees"|```/.test(raw)) {
       return send(res, 200, { status: 'ok', texte: raw.trim(), sources: [], recherche: research });
     }
-    console.error('develop: JSON illisible', JSON.stringify({ stop_reason: reply && reply.stop_reason, apercu: raw.slice(0, 200) }));
+    logError('develop', { event: 'JSON illisible', stop: reply && reply.stop_reason, longueur: raw.length });
     return send(res, 502, { status: 'error', message: 'Texte illisible. Réessaie.' });
   }
-  console.error('develop: reponse inutilisable', JSON.stringify({
-    stop_reason: reply && reply.stop_reason,
-    types: reply && Array.isArray(reply.content) ? reply.content.map(function (b) { return b && b.type; }) : null,
-    model: reply && reply.model,
-    apercu: String(raw || '').slice(0, 200)
-  }));
+  logError('develop', {
+    event: 'reponse inutilisable',
+    stop: reply && reply.stop_reason,
+    types: reply && Array.isArray(reply.content) ? reply.content.map(function (b) { return b && b.type; }).join(',') : '',
+    longueur: String(raw || '').length
+  });
   return send(res, 502, { status: 'error', message: 'La réponse reçue est inutilisable. Réessaie.' });
 };

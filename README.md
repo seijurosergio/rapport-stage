@@ -160,3 +160,11 @@ Le workflow échoue si l'une de ces étapes échoue.
 ### Tests
 - 92 tests passent (5 ignorés), ESLint clean.
 - CI GitHub Actions : Node 22, `npm ci`, `npx eslint .`, `npm test` (`MOCK_AI=1`).
+## Tests et contrôles
+
+- `npx eslint .` : contrôle tous les fichiers (aucune erreur attendue).
+- `npm test` : 85 tests, aucun ignoré. `tests/_page.js` ouvre la vraie page dans jsdom ; seule l'étape de compression du zip
+  est remplacée (jsdom ne la gère pas), tout le reste est le vrai code.
+- `npm run check:visual` : génère 12 Word, les convertit en PDF avec LibreOffice et vérifie pages vides, sommaire, thème et nom
+  (nécessite soffice, pdfinfo, pdftotext ; les PDF restent dans /tmp/rapport-stage-visuel).
+- Règle : aucun journal ne doit contenir de clé, de jeton, d'en-tête, de corps de requête ni de texte d'étudiant (api/_log.js).

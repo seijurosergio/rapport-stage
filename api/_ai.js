@@ -1,5 +1,6 @@
 // Aides communes aux fonctions IA (limite par IP, appel Anthropic, lecture du JSON).
 const mock = require('./_mock');
+const { logInfo } = require('./_log');
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
 const hits = new Map();
@@ -38,9 +39,7 @@ function joinText(content) {
 }
 // Journal de consommation : visible dans les logs Vercel, pour connaître le vrai coût de chaque appel.
 function logUsage(tag, reply) {
-  try {
-    console.log('usage ' + JSON.stringify({ route: tag, model: reply && reply.model, stop: reply && reply.stop_reason, usage: reply && reply.usage }));
-  } catch { /* ignoré */ }
+  logInfo('usage', { route: tag, model: reply && reply.model, stop: reply && reply.stop_reason, usage: reply && reply.usage });
 }
 // Gère méthode, interrupteur, clé, limite, corps ; renvoie le corps ou null (réponse déjà envoyée).
 function guard(req, res, key, max) {
